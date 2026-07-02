@@ -7,6 +7,8 @@ import {
   usersResponseSchema,
   errorResponseSchema,
   userParamsSchema,
+  paginatedUsersResponseSchema,
+  createUsersSchema,
 } from "../schemas/user.schema.js";
 import { UserController } from "../controllers/user.controller.js";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
@@ -22,7 +24,7 @@ export class UserRoutes {
       {
         schema: {
           querystring: userQuerySchema,
-          response: { 200: usersResponseSchema },
+          response: { 200: paginatedUsersResponseSchema },
         },
       },
       (req, reply) => this.controller.getUsersController(req, reply),
@@ -40,6 +42,17 @@ export class UserRoutes {
         },
       },
       (req, reply) => this.controller.createUserController(req, reply),
+    );
+
+    route.post(
+      "/bulk",
+      {
+        schema: {
+          body: createUsersSchema,
+          response: { 201: usersResponseSchema },
+        },
+      },
+      (req, reply) => this.controller.createUsersController(req, reply),
     );
 
     route.get(

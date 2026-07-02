@@ -6,26 +6,22 @@ import type { User } from "../../entities/user.entity.js";
 // One helper builds a fake model; each test overrides only what it cares about.
 function fakeModel(overrides: Partial<UserModel> = {}): UserModel {
   return {
-    getAll: vi.fn(async () => []),
-    getBy: vi.fn(async () => []),
+    get: vi.fn(async () => ({ data: [], total: 0, limit: 20, offset: 0 })),
     getById: vi.fn(async () => null),
-    create: vi.fn(async (data) => ({ id: "1", ...data } as User)),
+    getFirst: vi.fn(async () => null),
+    create: vi.fn(async (data) => ({ id: "1", ...data }) as User),
+    createMany: vi.fn(async (items: Partial<User>[]) =>
+      items.map((d, i) => ({ id: String(i), ...d }) as User),
+    ),
     update: vi.fn(async () => null),
-    softDelete: vi.fn(async () => null),
+    softDelete: vi.fn(async () => undefined),
     ...overrides,
   } as unknown as UserModel;
 }
 
 describe("UserService", () => {
-  it("rejects a duplicate email with 400", async () => {
-    const existing = { id: "1", email: "ada@x.com" } as User;
-    const service = new UserService(fakeModel({ getBy: vi.fn(async () => [existing]) }));
-
-    await expect(
-      service.createUser({ name: "ada", email: "ada@x.com" }),
-    ).rejects.toMatchObject({ status: 400 });
-  });
-
+  // Note: duplicate-email rejection now lives in UserModel.create (closest to
+  // the DB), so it is covered in the model + integration suites, not here.
   it("capitalizes the name before handing it to the model", async () => {
     const create = vi.fn(async (data) => data as User);
     const service = new UserService(fakeModel({ create }));
@@ -35,6 +31,21 @@ describe("UserService", () => {
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Ada Lovelace" }),
     );
+  });
+
+  it("capitalizes every name in a bulk create", async () => {
+    const createMany = vi.fn(async (items: User[]) => items);
+    const service = new UserService(fakeModel({ createMany }));
+
+    await service.createUsers([
+      { name: "ada lovelace", email: "ada@x.com" },
+      { name: "grace hopper", email: "grace@x.com" },
+    ]);
+
+    expect(createMany).toHaveBeenCalledWith([
+      expect.objectContaining({ name: "Ada Lovelace" }),
+      expect.objectContaining({ name: "Grace Hopper" }),
+    ]);
   });
 
   it("throws 404 when the user is missing", async () => {

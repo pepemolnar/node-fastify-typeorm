@@ -6,17 +6,18 @@ import {
   CreateUserDto,
   UserFiltersDto,
   UpdateUserDto,
+  paginatedUsersResponseSchema,
 } from "../types/user.types.js";
 
 export class UserService {
   constructor(private userModel: UserModel) {}
 
-  async getAllUsers(): Promise<User[]> {
-    return this.userModel.getAll();
-  }
-
-  async getUsers(filters: UserFiltersDto): Promise<User[]> {
-    return this.userModel.getBy(filters);
+  async getUsers(
+    limit: number,
+    offset: number,
+    filters: UserFiltersDto,
+  ): Promise<paginatedUsersResponseSchema> {
+    return this.userModel.get(limit, offset, filters);
   }
 
   async getUser(id: string): Promise<User> {
@@ -28,13 +29,17 @@ export class UserService {
   }
 
   async createUser(data: CreateUserDto): Promise<User> {
-    const existingEmailUser = await this.userModel.getBy({ email: data.email });
-
-    if (existingEmailUser.length)
-      throw new HttpError(400, "Email is already exist!");
     if (data.name) data.name = capitalizeWords(data.name);
 
     return this.userModel.create(data);
+  }
+
+  async createUsers(items: CreateUserDto[]): Promise<User[]> {
+    const normalized = items.map((d) => ({
+      ...d,
+      name: d.name ? capitalizeWords(d.name) : d.name,
+    }));
+    return this.userModel.createMany(normalized);
   }
 
   async updateUser(id: string, data: UpdateUserDto): Promise<User | null> {

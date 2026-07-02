@@ -7,7 +7,7 @@ export const createUserSchema = z.object({
 
 export const updateUserSchema = createUserSchema.partial();
 
-export const userQuerySchema = z
+export const userFilterSchema = z
   .object({
     id: z.string().min(1).optional(),
     name: z.string().min(1).optional(),
@@ -35,3 +35,21 @@ export const errorResponseSchema = z.object({
 export const userParamsSchema = z.object({
   id: z.uuid(),
 });
+
+export const paginationSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const userQuerySchema = userFilterSchema
+  .merge(paginationSchema)
+  .strict();
+
+export const paginatedUsersResponseSchema = z.object({
+  data: usersResponseSchema,
+  total: z.coerce.number().int(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const createUsersSchema = z.array(createUserSchema).min(1).max(100);

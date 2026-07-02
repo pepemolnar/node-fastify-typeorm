@@ -1,5 +1,4 @@
 import { AppDataSource } from "./db/data-source.js";
-import { User } from "./entities/user.entity.js";
 import { UserModel } from "./models/user.model.js";
 import { UserService } from "./services/user.service.js";
 import { UserController } from "./controllers/user.controller.js";
@@ -11,8 +10,7 @@ export interface Container {
 }
 
 export function createContainer(): Container {
-  const userRepo = AppDataSource.getRepository(User);
-  const userModel = new UserModel(userRepo);
+  const userModel = new UserModel(AppDataSource.manager);
   const userService = new UserService(userModel);
   const userController = new UserController(userService);
   const userRoutes = new UserRoutes(userController);

@@ -3,7 +3,7 @@ import { UserService } from "../services/user.service.js";
 import {
   CreateUserDto,
   UpdateUserDto,
-  UserFiltersDto,
+  UserQueryDto,
   UserParamsDto,
 } from "../types/user.types.js";
 
@@ -11,13 +11,12 @@ export class UserController {
   constructor(private userService: UserService) {}
 
   async getUsersController(
-    req: FastifyRequest<{ Querystring: UserFiltersDto }>,
+    req: FastifyRequest<{ Querystring: UserQueryDto }>,
     reply: FastifyReply,
   ) {
-    const filters = req.query;
-    if (Object.keys(filters).length)
-      return reply.send(await this.userService.getUsers(filters));
-    return reply.send(await this.userService.getAllUsers());
+    const { limit, offset, ...filters } = req.query;
+
+    return reply.send(await this.userService.getUsers(limit, offset, filters));
   }
 
   async getUserController(
@@ -32,6 +31,13 @@ export class UserController {
     reply: FastifyReply,
   ) {
     return reply.status(201).send(await this.userService.createUser(req.body));
+  }
+
+  async createUsersController(
+    req: FastifyRequest<{ Body: CreateUserDto[] }>,
+    reply: FastifyReply,
+  ) {
+    return reply.status(201).send(await this.userService.createUsers(req.body));
   }
 
   async updateUserController(
