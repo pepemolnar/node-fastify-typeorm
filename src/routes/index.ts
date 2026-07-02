@@ -1,7 +1,18 @@
 import type { FastifyInstance } from "fastify";
-import { UserRoutes } from "./user.routes.js";
+import type { Container } from "../container.js";
 
-export async function routes(app: FastifyInstance) {
+export async function routes(app: FastifyInstance, container: Container) {
   app.get("/health", async () => ({ status: "ok" }));
-  await app.register(new UserRoutes().register, { prefix: "/users" });
+
+  app.get("/ready", async (req, reply) => {
+    try {
+      await container.checkReadiness();
+      return { status: "ready" };
+    } catch (err) {
+      req.log.warn({ err }, "readiness probe failed");
+      return reply.code(503).send({ status: "not ready" });
+    }
+  });
+
+  await app.register(container.userRoutes.register, { prefix: "/users" });
 }

@@ -1,0 +1,7 @@
+{
+  // Type-checks the whole project INCLUDING src/test, which tsconfig.json
+  // excludes (so `npm run build` won't fail on test-only type errors).
+  // Used by `npm run typecheck`; never emits.
+  "extends": "./tsconfig.json",
+  "exclude": ["node_modules", "dist"]
+}

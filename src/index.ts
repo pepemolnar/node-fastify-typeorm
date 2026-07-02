@@ -2,17 +2,39 @@ import "reflect-metadata";
 import { createApp } from "./app.js";
 import { env } from "./config/env.config.js";
 import { AppDataSource } from "./db/data-source.js";
+import { createContainer } from "./container.js";
 
-const app = await createApp();
 await AppDataSource.initialize();
-// Bind to 0.0.0.0 so the server is reachable through Docker's published port,
-// not just the container's own loopback interface.
+const container = createContainer();
+const app = await createApp(container);
+
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
 
 for (const signal of ["SIGINT", "SIGTERM"] as const) {
-  process.on(signal, async () => {
-    await app.close();
-    await AppDataSource.destroy();
+  process.on(signal, () => shutdown(signal));
+}
+
+let shuttingDown = false;
+
+async function shutdown(signal: string) {
+  if (shuttingDown) return; // guard: ignore a second SIGTERM
+  shuttingDown = true;
+  app.log.info({ signal }, "shutting down");
+
+  // Hard cap: if drain hangs, force-exit so a deploy can't wedge.
+  const forceExit = setTimeout(() => {
+    app.log.error("graceful shutdown timed out, forcing exit");
+    process.exit(1);
+  }, 10_000);
+  forceExit.unref();
+
+  try {
+    await app.close(); // stop accepting, drain in-flight requests
+    await AppDataSource.destroy(); // then close the DB pool
+    clearTimeout(forceExit);
     process.exit(0);
-  });
+  } catch (err) {
+    app.log.error({ err }, "error during shutdown");
+    process.exit(1);
+  }
 }

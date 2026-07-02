@@ -2,17 +2,20 @@ import { capitalizeWords } from "../helpers/string.helper.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 import { UserModel } from "../models/user.model.js";
 import { User } from "../entities/user.entity.js";
-import { CreateUserDto, getUserFiltersDto, UpdateUserDto } from "../types/user.types.js";
+import {
+  CreateUserDto,
+  UserFiltersDto,
+  UpdateUserDto,
+} from "../types/user.types.js";
 
 export class UserService {
-  constructor(private userModel: UserModel = new UserModel()) {
-  }
+  constructor(private userModel: UserModel) {}
 
   async getAllUsers(): Promise<User[]> {
     return this.userModel.getAll();
   }
 
-  async getUsers(filters: getUserFiltersDto): Promise<User[]> {
+  async getUsers(filters: UserFiltersDto): Promise<User[]> {
     return this.userModel.getBy(filters);
   }
 
@@ -25,9 +28,10 @@ export class UserService {
   }
 
   async createUser(data: CreateUserDto): Promise<User> {
-    const existingEmailUser = await this.userModel.getBy({ email: data.email })
+    const existingEmailUser = await this.userModel.getBy({ email: data.email });
 
-    if (existingEmailUser.length) throw new HttpError(400, "Email is already exist!");
+    if (existingEmailUser.length)
+      throw new HttpError(400, "Email is already exist!");
     if (data.name) data.name = capitalizeWords(data.name);
 
     return this.userModel.create(data);
@@ -37,7 +41,7 @@ export class UserService {
     return this.userModel.update(id, data);
   }
 
-  async deleteUser(id: string): Promise<User | null> {
-    return this.userModel.softDelete(id);
+  async deleteUser(id: string): Promise<void> {
+    await this.userModel.softDelete(id);
   }
 }

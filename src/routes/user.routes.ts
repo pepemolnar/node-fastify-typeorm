@@ -1,25 +1,85 @@
 import type { FastifyInstance } from "fastify";
-import { validateBody, validateQuery } from "../middlewares/validators.js";
-import { createUserSchema, updateUserSchema, userQuerySchema } from "../schemas/user.schema.js";
+import {
+  createUserSchema,
+  updateUserSchema,
+  userQuerySchema,
+  userResponseSchema,
+  usersResponseSchema,
+  errorResponseSchema,
+  userParamsSchema,
+} from "../schemas/user.schema.js";
 import { UserController } from "../controllers/user.controller.js";
+import { ZodTypeProvider } from "fastify-type-provider-zod";
 
 export class UserRoutes {
-  constructor(private controller: UserController = new UserController()) { }
+  constructor(private controller: UserController) {}
 
   register = async (app: FastifyInstance) => {
-    app.get("/", { preHandler: validateQuery(userQuerySchema) }, (req, reply) =>
-      this.controller.getUsersController(req, reply));
+    const route = app.withTypeProvider<ZodTypeProvider>();
 
-    app.post("/", { preHandler: validateBody(createUserSchema) }, (req, reply) =>
-      this.controller.createUserController(req, reply));
+    route.get(
+      "/",
+      {
+        schema: {
+          querystring: userQuerySchema,
+          response: { 200: usersResponseSchema },
+        },
+      },
+      (req, reply) => this.controller.getUsersController(req, reply),
+    );
 
-    app.get<{ Params: { id: string } }>("/:id", (req, reply) =>
-      this.controller.getUserController(req, reply));
+    route.post(
+      "/",
+      {
+        schema: {
+          body: createUserSchema,
+          response: {
+            201: userResponseSchema,
+            400: errorResponseSchema,
+          },
+        },
+      },
+      (req, reply) => this.controller.createUserController(req, reply),
+    );
 
-    app.put<{ Params: { id: string } }>("/:id", { preHandler: validateBody(updateUserSchema) }, (req, reply) =>
-      this.controller.updateUserController(req, reply));
+    route.get(
+      "/:id",
+      {
+        schema: {
+          params: userParamsSchema,
+          response: {
+            200: userResponseSchema,
+            404: errorResponseSchema,
+          },
+        },
+      },
+      (req, reply) => this.controller.getUserController(req, reply),
+    );
 
-    app.delete<{ Params: { id: string } }>("/:id", (req, reply) =>
-      this.controller.deleteUserController(req, reply));
+    route.put(
+      "/:id",
+      {
+        schema: {
+          params: userParamsSchema,
+          body: updateUserSchema,
+          response: {
+            200: userResponseSchema,
+            400: errorResponseSchema,
+            404: errorResponseSchema,
+          },
+        },
+      },
+      (req, reply) => this.controller.updateUserController(req, reply),
+    );
+
+    route.delete(
+      "/:id",
+      {
+        schema: {
+          params: userParamsSchema,
+        },
+      },
+      (req, reply) => this.controller.deleteUserController(req, reply),
+    );
   };
 }
