@@ -12,6 +12,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
       - run: npm run typecheck
       - run: npm run test # unit — fast, no Docker
       - run: npm run test:integration # Testcontainers spins up Postgres, runs migrations

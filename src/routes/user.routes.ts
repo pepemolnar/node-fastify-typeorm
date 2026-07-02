@@ -12,6 +12,7 @@ import {
 } from "../schemas/user.schema.js";
 import { UserController } from "../controllers/user.controller.js";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
+import { authenticate, requireRole } from "../guards/auth.guards.js";
 
 export class UserRoutes {
   constructor(private controller: UserController) {}
@@ -22,6 +23,7 @@ export class UserRoutes {
     route.get(
       "/",
       {
+        preHandler: [authenticate],
         schema: {
           querystring: userQuerySchema,
           response: { 200: paginatedUsersResponseSchema },
@@ -33,6 +35,7 @@ export class UserRoutes {
     route.post(
       "/",
       {
+        preHandler: [authenticate, requireRole("admin")],
         schema: {
           body: createUserSchema,
           response: {
@@ -47,6 +50,7 @@ export class UserRoutes {
     route.post(
       "/bulk",
       {
+        preHandler: [authenticate, requireRole("admin")],
         schema: {
           body: createUsersSchema,
           response: { 201: usersResponseSchema },
@@ -58,6 +62,7 @@ export class UserRoutes {
     route.get(
       "/:id",
       {
+        preHandler: [authenticate],
         schema: {
           params: userParamsSchema,
           response: {
@@ -72,6 +77,7 @@ export class UserRoutes {
     route.put(
       "/:id",
       {
+        preHandler: [authenticate, requireRole("admin")],
         schema: {
           params: userParamsSchema,
           body: updateUserSchema,
@@ -88,6 +94,7 @@ export class UserRoutes {
     route.delete(
       "/:id",
       {
+        preHandler: [authenticate, requireRole("admin")],
         schema: {
           params: userParamsSchema,
         },

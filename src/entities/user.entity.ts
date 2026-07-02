@@ -1,6 +1,9 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
 } from "typeorm";
 
 @Entity("users")
@@ -14,12 +17,18 @@ export class User {
   @Column({ unique: true })
   email!: string;
 
+  @Column({ type: "varchar", default: "user" })
+  role!: "user" | "admin";
+
+  @Column({ select: false })
+  passwordHash!: string;
+
   @CreateDateColumn()
   createdAt!: Date;
 
   @UpdateDateColumn()
   updatedAt!: Date;
 
-  @Column({ default: false })
+  @Column({ default: false, select: false })
   isDeleted!: boolean;
 }

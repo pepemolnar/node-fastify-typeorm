@@ -6,3 +6,4 @@ process.env.DATABASE_URL ??= "postgres://test:test@localhost:5432/test";
 process.env.POSTGRES_USER ??= "practice";
 process.env.POSTGRES_PASSWORD ??= "practice";
 process.env.POSTGRES_DB ??= "practice";
+process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-characters-long";

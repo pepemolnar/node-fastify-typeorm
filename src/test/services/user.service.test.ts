@@ -26,7 +26,11 @@ describe("UserService", () => {
     const create = vi.fn(async (data) => data as User);
     const service = new UserService(fakeModel({ create }));
 
-    await service.createUser({ name: "ada lovelace", email: "ada@x.com" });
+    await service.createUser({
+      name: "ada lovelace",
+      email: "ada@x.com",
+      password: "password123",
+    });
 
     expect(create).toHaveBeenCalledWith(
       expect.objectContaining({ name: "Ada Lovelace" }),
@@ -38,8 +42,8 @@ describe("UserService", () => {
     const service = new UserService(fakeModel({ createMany }));
 
     await service.createUsers([
-      { name: "ada lovelace", email: "ada@x.com" },
-      { name: "grace hopper", email: "grace@x.com" },
+      { name: "ada lovelace", email: "ada@x.com", password: "password123" },
+      { name: "grace hopper", email: "grace@x.com", password: "password123" },
     ]);
 
     expect(createMany).toHaveBeenCalledWith([
@@ -49,13 +53,19 @@ describe("UserService", () => {
   });
 
   it("throws 404 when the user is missing", async () => {
-    const service = new UserService(fakeModel({ getById: vi.fn(async () => null) }));
-    await expect(service.getUser("missing")).rejects.toMatchObject({ status: 404 });
+    const service = new UserService(
+      fakeModel({ getById: vi.fn(async () => null) }),
+    );
+    await expect(service.getUser("missing")).rejects.toMatchObject({
+      status: 404,
+    });
   });
 
   it("returns the user when found", async () => {
     const user = { id: "1", name: "Ada" } as User;
-    const service = new UserService(fakeModel({ getById: vi.fn(async () => user) }));
+    const service = new UserService(
+      fakeModel({ getById: vi.fn(async () => user) }),
+    );
     await expect(service.getUser("1")).resolves.toBe(user);
   });
 });

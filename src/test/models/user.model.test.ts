@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { UserModel } from "../../models/user.model.js";
-import type { EntityManager, Repository } from "typeorm";
+import type { EntityManager, Repository, UpdateResult } from "typeorm";
 import type { User } from "../../entities/user.entity.js";
 
 function fakeRepo(overrides: Partial<Repository<User>> = {}): Repository<User> {
@@ -36,7 +36,7 @@ describe("UserModel", () => {
   });
 
   it("softDelete sets isDeleted = true", async () => {
-    const update = vi.fn(async () => ({}) as any);
+    const update = vi.fn(async () => ({}) as UpdateResult);
     await new UserModel(fakeManager(fakeRepo({ update }))).softDelete("1");
     expect(update).toHaveBeenCalledWith("1", { isDeleted: true });
   });
@@ -47,7 +47,7 @@ describe("UserModel", () => {
       fakeManager(fakeRepo({ findOne: vi.fn(async () => existing) })),
     );
     await expect(
-      model.create({ name: "Ada", email: "ada@x.com" }),
+      model.create({ name: "Ada", email: "ada@x.com", passwordHash: "hashed" }),
     ).rejects.toMatchObject({ status: 400 });
   });
 });

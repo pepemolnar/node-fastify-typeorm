@@ -1,4 +1,5 @@
 import { capitalizeWords } from "../helpers/string.helper.js";
+import { hashPassword } from "../helpers/password.helper.js";
 import { HttpError } from "../middlewares/errorHandler.js";
 import { UserModel } from "../models/user.model.js";
 import { User } from "../entities/user.entity.js";
@@ -28,17 +29,22 @@ export class UserService {
     return user;
   }
 
-  async createUser(data: CreateUserDto): Promise<User> {
-    if (data.name) data.name = capitalizeWords(data.name);
-
-    return this.userModel.create(data);
+  async createUser({ name, email, password }: CreateUserDto): Promise<User> {
+    return this.userModel.create({
+      name: capitalizeWords(name),
+      email,
+      passwordHash: await hashPassword(password),
+    });
   }
 
   async createUsers(items: CreateUserDto[]): Promise<User[]> {
-    const normalized = items.map((d) => ({
-      ...d,
-      name: d.name ? capitalizeWords(d.name) : d.name,
-    }));
+    const normalized = await Promise.all(
+      items.map(async ({ name, email, password }) => ({
+        name: capitalizeWords(name),
+        email,
+        passwordHash: await hashPassword(password),
+      })),
+    );
     return this.userModel.createMany(normalized);
   }
 

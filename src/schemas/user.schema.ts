@@ -3,9 +3,13 @@ import { z } from "zod";
 export const createUserSchema = z.object({
   name: z.string().min(1),
   email: z.email(),
+  password: z.string().min(8),
 });
 
-export const updateUserSchema = createUserSchema.partial();
+// password is set via register/create only, never via a plain update
+export const updateUserSchema = createUserSchema
+  .omit({ password: true })
+  .partial();
 
 export const userFilterSchema = z
   .object({

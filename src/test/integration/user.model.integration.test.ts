@@ -28,7 +28,11 @@ afterAll(async () => {
 
 describe("UserModel against real Postgres", () => {
   it("soft delete hides the row from reads", async () => {
-    const u = await model.create({ name: "Ada", email: "ada@x.io" });
+    const u = await model.create({
+      name: "Ada",
+      email: "ada@x.io",
+      passwordHash: "hashed",
+    });
     await model.softDelete(u.id);
     const { data, total } = await model.get(20, 0, {});
     expect(total).toBe(0);
@@ -37,7 +41,11 @@ describe("UserModel against real Postgres", () => {
 
   it("paginates with take/skip and reports the full total", async () => {
     for (let i = 0; i < 5; i++)
-      await model.create({ name: `U${i}`, email: `u${i}@x.io` });
+      await model.create({
+        name: `U${i}`,
+        email: `u${i}@x.io`,
+        passwordHash: "hashed",
+      });
     const page = await model.get(2, 2, {});
     expect(page.total).toBe(5);
     expect(page.data).toHaveLength(2);
@@ -47,9 +55,9 @@ describe("UserModel against real Postgres", () => {
   it("createMany rolls back the whole batch on a duplicate email", async () => {
     await expect(
       model.createMany([
-        { name: "A", email: "a@x.io" },
-        { name: "B", email: "b@x.io" },
-        { name: "A2", email: "a@x.io" }, // duplicate -> throws mid-batch
+        { name: "A", email: "a@x.io", passwordHash: "hashed" },
+        { name: "B", email: "b@x.io", passwordHash: "hashed" },
+        { name: "A2", email: "a@x.io", passwordHash: "hashed" }, // duplicate -> throws mid-batch
       ]),
     ).rejects.toThrow();
     const { total } = await model.get(20, 0, {});

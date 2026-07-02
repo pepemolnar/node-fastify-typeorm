@@ -1,12 +1,7 @@
-import {
-  EntityManager,
-  FindOneOptions,
-  FindOptionsWhere,
-  Repository,
-} from "typeorm";
+import { EntityManager, FindOptionsWhere } from "typeorm";
 import { User } from "../entities/user.entity.js";
 import {
-  CreateUserDto,
+  NewUserDto,
   UserFiltersDto,
   UpdateUserDto,
   paginatedUsersResponseSchema,
@@ -42,7 +37,14 @@ export class UserModel {
     return this.repo().findOne({ where });
   }
 
-  async create(data: CreateUserDto): Promise<User> {
+  async getForLogin(email: string): Promise<User | null> {
+    return this.repo().findOne({
+      where: { email, isDeleted: false },
+      select: { id: true, email: true, role: true, passwordHash: true },
+    });
+  }
+
+  async create(data: NewUserDto): Promise<User> {
     const existing = await this.repo().findOne({
       where: { email: data.email },
     });
@@ -52,8 +54,7 @@ export class UserModel {
     return this.repo().save(this.repo().create(data));
   }
 
-  // Bulk insert - transaction behaviour
-  async createMany(items: CreateUserDto[]): Promise<User[]> {
+  async createMany(items: NewUserDto[]): Promise<User[]> {
     return this.manager.transaction(async (m) => {
       const repo = m.getRepository(User);
       const created: User[] = [];

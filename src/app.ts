@@ -10,6 +10,7 @@ import {
 } from "fastify-type-provider-zod";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
+import { authPlugin } from "./plugins/auth.plugin.js";
 
 export async function createApp(container: Container) {
   const isDev = env.NODE_ENV === "development";
@@ -44,6 +45,7 @@ export async function createApp(container: Container) {
     reply.header("x-request-id", req.id);
   });
 
+  await app.register(authPlugin);
   await app.register(async (instance) => routes(instance, container));
 
   registerErrorHandler(app);

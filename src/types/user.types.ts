@@ -9,6 +9,10 @@ import type {
 } from "../schemas/user.schema.js";
 
 export type CreateUserDto = z.infer<typeof createUserSchema>;
+// What the persistence layer stores: the raw password is already hashed away.
+export type NewUserDto = Omit<CreateUserDto, "password"> & {
+  passwordHash: string;
+};
 export type UpdateUserDto = z.infer<typeof updateUserSchema>;
 export type UserQueryDto = z.infer<typeof userQuerySchema>;
 export type UserFiltersDto = z.infer<typeof userFilterSchema>;

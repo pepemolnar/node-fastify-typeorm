@@ -12,7 +12,7 @@ const migrationModules = import.meta.glob("../../migrations/*.ts", {
 });
 const migrations = Object.values(migrationModules).flatMap((m) =>
   Object.values(m as Record<string, unknown>),
-) as Function[];
+) as (new () => object)[]; // migration classes; DataSource takes their constructors
 
 export function makeTestDataSource(url: string) {
   return new DataSource({

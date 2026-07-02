@@ -1,12 +1,15 @@
 import type { Container } from "../../container.js";
 import { UserRoutes } from "../../routes/user.routes.js";
 import type { UserController } from "../../controllers/user.controller.js";
+import { AuthRoutes } from "../../routes/auth.routes.js";
+import type { AuthController } from "../../controllers/auth.controller.js";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../app.js";
 
 function buildContainer(ready: boolean): Container {
   return {
     userRoutes: new UserRoutes({} as UserController),
+    authRoutes: new AuthRoutes({} as AuthController),
     checkReadiness: ready
       ? async () => {}
       : async () => {

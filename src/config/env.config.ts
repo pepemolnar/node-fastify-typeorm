@@ -13,5 +13,7 @@ export const env = z
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
+    JWT_SECRET: z.string().min(32),
+    JWT_EXPIRES_IN: z.string().default("15m"),
   })
   .parse(process.env);
