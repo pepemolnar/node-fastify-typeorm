@@ -1,5 +1,7 @@
-import Fastify from "fastify";
+import Fastify, { type FastifyBaseLogger } from "fastify";
+import type { Logger } from "pino";
 import { env } from "./config/env.config.js";
+import { createLogger } from "./config/logger.js";
 import { routes } from "./routes/index.js";
 import { registerErrorHandler } from "./middlewares/errorHandler.js";
 import { Container } from "./container.js";
@@ -11,24 +13,31 @@ import {
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
 import { authPlugin } from "./plugins/auth.plugin.js";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyCors from "@fastify/cors";
 
-export async function createApp(container: Container) {
-  const isDev = env.NODE_ENV === "development";
+export async function createApp(container: Container, logger?: Logger) {
   const app = Fastify({
-    logger: {
-      level: env.LOG_LEVEL,
-      transport: isDev
-        ? {
-            target: "pino-pretty",
-          }
-        : undefined,
-    },
+    loggerInstance: (logger ?? createLogger()) as FastifyBaseLogger,
     requestIdHeader: "x-request-id",
     requestIdLogLabel: "reqId",
   });
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  await app.register(fastifyHelmet, {
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "validator.swagger.io"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
+      },
+    },
+  });
+
+  await app.register(fastifyCors, { origin: env.CORS_ORIGIN });
 
   await app.register(fastifySwagger, {
     openapi: {

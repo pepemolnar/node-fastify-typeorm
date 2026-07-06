@@ -1,21 +1,27 @@
 import { describe, it, expect, vi } from "vitest";
 import { AuthService } from "../../services/auth.service.js";
-import type { UserModel } from "../../models/user.model.js";
+import type { IUserRepository } from "../../types/user.types.js";
 import type { User } from "../../entities/user.entity.js";
+import type { NotificationService } from "../../services/notification.service.js";
 import { hashPassword, verifyPassword } from "../../helpers/password.helper.js";
 
-function fakeModel(overrides: Partial<UserModel> = {}): UserModel {
+function fakeModel(overrides: Partial<IUserRepository> = {}): IUserRepository {
   return {
     create: vi.fn(async (data) => ({ id: "1", ...data }) as User),
     getForLogin: vi.fn(async () => null),
     ...overrides,
-  } as unknown as UserModel;
+  } as unknown as IUserRepository;
+}
+
+// Notifications are a side effect of register; a stub keeps this suite pure.
+function fakeNotifications(): NotificationService {
+  return { notify: vi.fn(async () => {}) } as unknown as NotificationService;
 }
 
 describe("AuthService", () => {
   it("register capitalizes the name and stores a bcrypt hash, not the password", async () => {
     const create = vi.fn(async (data) => ({ id: "1", ...data }) as User);
-    const service = new AuthService(fakeModel({ create }));
+    const service = new AuthService(fakeModel({ create }), fakeNotifications());
 
     await service.register({
       name: "ada lovelace",
@@ -37,6 +43,7 @@ describe("AuthService", () => {
           async () => ({ id: "u1", role: "admin", passwordHash }) as User,
         ),
       }),
+      fakeNotifications(),
     );
 
     await expect(
@@ -47,6 +54,7 @@ describe("AuthService", () => {
   it("verifyCredentials throws 401 when the user is missing", async () => {
     const service = new AuthService(
       fakeModel({ getForLogin: vi.fn(async () => null) }),
+      fakeNotifications(),
     );
 
     await expect(
@@ -62,6 +70,7 @@ describe("AuthService", () => {
           async () => ({ id: "u1", role: "user", passwordHash }) as User,
         ),
       }),
+      fakeNotifications(),
     );
 
     await expect(

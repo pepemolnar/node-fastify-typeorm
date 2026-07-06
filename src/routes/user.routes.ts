@@ -9,6 +9,8 @@ import {
   userParamsSchema,
   paginatedUsersResponseSchema,
   createUsersSchema,
+  cursorQuerySchema,
+  cursorPageResponseSchema,
 } from "../schemas/user.schema.js";
 import { UserController } from "../controllers/user.controller.js";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
@@ -30,6 +32,21 @@ export class UserRoutes {
         },
       },
       (req, reply) => this.controller.getUsersController(req, reply),
+    );
+
+    route.get(
+      "/cursor",
+      {
+        preHandler: [authenticate],
+        schema: {
+          querystring: cursorQuerySchema,
+          response: {
+            200: cursorPageResponseSchema,
+            400: errorResponseSchema,
+          },
+        },
+      },
+      (req, reply) => this.controller.getUsersPageController(req, reply),
     );
 
     route.post(

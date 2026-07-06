@@ -1,18 +1,20 @@
-import { EntityManager, FindOptionsWhere } from "typeorm";
+import { EntityManager, FindOptionsWhere, LessThan } from "typeorm";
 import { User } from "../entities/user.entity.js";
 import {
   NewUserDto,
   UserFiltersDto,
   UpdateUserDto,
   paginatedUsersResponseSchema,
+  IUserRepository,
+  UserCursorPage,
 } from "../types/user.types.js";
 import { HttpError } from "../middlewares/errorHandler.js";
+import { BaseModel } from "./base.model.js";
+import { Cursor, encodeCursor } from "../helpers/cursor.helper.js";
 
-export class UserModel {
-  constructor(private manager: EntityManager) {}
-
-  private repo(m = this.manager) {
-    return m.getRepository(User);
+export class UserModel extends BaseModel<User> implements IUserRepository {
+  constructor(manager: EntityManager) {
+    super(manager, User);
   }
 
   async get(
@@ -20,17 +22,48 @@ export class UserModel {
     offset: number,
     filters: UserFiltersDto,
   ): Promise<paginatedUsersResponseSchema> {
-    const [data, total] = await this.repo().findAndCount({
-      where: { ...filters, isDeleted: false },
-      take: limit,
-      skip: offset,
-      order: { createdAt: "DESC" },
-    });
+    const [data, total] = await this.repo().findAndCount(
+      this.query()
+        .filter(filters)
+        .order({ createdAt: "DESC" })
+        .paginate(limit, offset)
+        .build(),
+    );
+
     return { data, total, limit, offset };
   }
 
+  // Keyset pagination over the stable (createdAt, id) sort key. Given a cursor,
+  // fetch the rows that fall strictly after it: either older by timestamp, or
+  // same timestamp but a smaller id (the tiebreaker). Fetching limit+1 lets us
+  // tell whether a further page exists without a second COUNT query.
+  async getPage(limit: number, cursor?: Cursor): Promise<UserCursorPage> {
+    const where = cursor
+      ? [
+          this.scoped({ createdAt: LessThan(cursor.createdAt) }),
+          this.scoped({ createdAt: cursor.createdAt, id: LessThan(cursor.id) }),
+        ]
+      : this.scoped();
+
+    const rows = await this.repo().find({
+      where,
+      order: { createdAt: "DESC", id: "DESC" },
+      take: limit + 1,
+    });
+
+    const hasMore = rows.length > limit;
+    const data = hasMore ? rows.slice(0, limit) : rows;
+    const last = data.at(-1);
+    const nextCursor =
+      hasMore && last
+        ? encodeCursor({ createdAt: last.createdAt, id: last.id })
+        : null;
+
+    return { data, nextCursor };
+  }
+
   async getById(id: string): Promise<User | null> {
-    return this.repo().findOne({ where: { id, isDeleted: false } });
+    return this.findOne({ id });
   }
 
   async getFirst(where: FindOptionsWhere<User>): Promise<User | null> {
@@ -38,10 +71,10 @@ export class UserModel {
   }
 
   async getForLogin(email: string): Promise<User | null> {
-    return this.repo().findOne({
-      where: { email, isDeleted: false },
-      select: { id: true, email: true, role: true, passwordHash: true },
-    });
+    return this.findOne(
+      { email },
+      { select: { id: true, email: true, role: true, passwordHash: true } },
+    );
   }
 
   async create(data: NewUserDto): Promise<User> {
@@ -52,20 +85,6 @@ export class UserModel {
       throw new HttpError(400, `Email ${data.email} already exists`);
 
     return this.repo().save(this.repo().create(data));
-  }
-
-  async createMany(items: NewUserDto[]): Promise<User[]> {
-    return this.manager.transaction(async (m) => {
-      const repo = m.getRepository(User);
-      const created: User[] = [];
-      for (const data of items) {
-        const existing = await repo.findOne({ where: { email: data.email } });
-        if (existing)
-          throw new HttpError(400, `Email ${data.email} already exists`);
-        created.push(await repo.save(repo.create(data)));
-      }
-      return created;
-    });
   }
 
   async update(id: string, data: UpdateUserDto): Promise<User | null> {

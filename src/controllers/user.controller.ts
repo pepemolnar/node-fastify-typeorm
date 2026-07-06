@@ -2,6 +2,7 @@ import type { FastifyRequest, FastifyReply } from "fastify";
 import { UserService } from "../services/user.service.js";
 import {
   CreateUserDto,
+  CursorQueryDto,
   UpdateUserDto,
   UserQueryDto,
   UserParamsDto,
@@ -17,6 +18,15 @@ export class UserController {
     const { limit, offset, ...filters } = req.query;
 
     return reply.send(await this.userService.getUsers(limit, offset, filters));
+  }
+
+  async getUsersPageController(
+    req: FastifyRequest<{ Querystring: CursorQueryDto }>,
+    reply: FastifyReply,
+  ) {
+    const { limit, cursor } = req.query;
+
+    return reply.send(await this.userService.getUsersPage(limit, cursor));
   }
 
   async getUserController(

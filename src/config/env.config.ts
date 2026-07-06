@@ -15,5 +15,6 @@ export const env = z
       .default("development"),
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z.string().default("15m"),
+    CORS_ORIGIN: z.string().default("*"),
   })
   .parse(process.env);

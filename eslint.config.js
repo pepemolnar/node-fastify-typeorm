@@ -9,4 +9,18 @@ export default tseslint.config(
   {
     ignores: ["dist/", "node_modules/"],
   },
+  {
+    rules: {
+      // Allow intentionally-unused identifiers when prefixed with `_`
+      // (e.g. not-yet-implemented stub params).
+      "@typescript-eslint/no-unused-vars": [
+        "error",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 );

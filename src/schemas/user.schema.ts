@@ -6,7 +6,6 @@ export const createUserSchema = z.object({
   password: z.string().min(8),
 });
 
-// password is set via register/create only, never via a plain update
 export const updateUserSchema = createUserSchema
   .omit({ password: true })
   .partial();
@@ -57,3 +56,16 @@ export const paginatedUsersResponseSchema = z.object({
 });
 
 export const createUsersSchema = z.array(createUserSchema).min(1).max(100);
+
+export const cursorQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    cursor: z.string().optional(),
+  })
+  .strict();
+
+export const cursorPageResponseSchema = z.object({
+  data: usersResponseSchema,
+  // null once the last page has been reached.
+  nextCursor: z.string().nullable(),
+});

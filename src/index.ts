@@ -1,12 +1,14 @@
 import "reflect-metadata";
 import { createApp } from "./app.js";
 import { env } from "./config/env.config.js";
+import { createLogger } from "./config/logger.js";
 import { AppDataSource } from "./db/data-source.js";
 import { createContainer } from "./container.js";
 
 await AppDataSource.initialize();
-const container = createContainer();
-const app = await createApp(container);
+const logger = createLogger();
+const container = createContainer(logger);
+const app = await createApp(container, logger);
 
 await app.listen({ port: env.PORT, host: "0.0.0.0" });
 
