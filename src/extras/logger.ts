@@ -1,5 +1,5 @@
 import pino, { type Logger } from "pino";
-import { env } from "./env.config.js";
+import { env } from "../config/env.config.js";
 
 export function createLogger(): Logger {
   const isDev = env.NODE_ENV === "development";

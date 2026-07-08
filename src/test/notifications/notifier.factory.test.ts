@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { NotifierFactory } from "../../notifications/notifier.js";
-import { EmailNotifier } from "../../notifications/email.notifier.js";
-import { SmsNotifier } from "../../notifications/sms.notifier.js";
-import { LogNotifier } from "../../notifications/log.notifier.js";
+import { NotifierFactory } from "../../extras/notifications/notifier.js";
+import { EmailNotifier } from "../../extras/notifications/email.notifier.js";
+import { SmsNotifier } from "../../extras/notifications/sms.notifier.js";
+import { LogNotifier } from "../../extras/notifications/log.notifier.js";
 
 function factory() {
   return new NotifierFactory([

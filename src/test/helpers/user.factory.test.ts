@@ -4,7 +4,7 @@ import {
   makeUser,
   makeUsers,
   DEFAULT_PASSWORD,
-} from "../../helpers/user.factory.js";
+} from "../../extras/user.factory.js";
 
 describe("user factory", () => {
   it("produces a user that satisfies createUserSchema", () => {

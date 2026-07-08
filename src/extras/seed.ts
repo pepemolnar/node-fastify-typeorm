@@ -1,12 +1,8 @@
 import "reflect-metadata";
-import { AppDataSource } from "../db/data-source.js";
+import { AppDataSource } from "./data-source.js";
 import { User } from "../entities/user.entity.js";
 import { hashPassword } from "../helpers/password.helper.js";
-import {
-  makeUser,
-  makeUsers,
-  DEFAULT_PASSWORD,
-} from "../helpers/user.factory.js";
+import { makeUser, makeUsers, DEFAULT_PASSWORD } from "./user.factory.js";
 
 const USER_COUNT = 25;
 const SOFT_DELETED_COUNT = 2;

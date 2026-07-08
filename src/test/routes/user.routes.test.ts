@@ -6,7 +6,8 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { UserRoutes } from "../../routes/user.routes.js";
-import { authPlugin } from "../../plugins/auth.plugin.js";
+import { authPlugin } from "../../extras/auth.plugin.js";
+import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
 import { registerErrorHandler } from "../../middlewares/errorHandler.js";
 import type { UserController } from "../../controllers/user.controller.js";
 
@@ -19,7 +20,10 @@ async function buildApp(controller: Partial<UserController>) {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   await app.register(authPlugin); // guards need req.jwtVerify / app.jwt.sign
-  const routes = new UserRoutes(controller as UserController);
+  const routes = new UserRoutes(
+    controller as UserController,
+    new InMemoryCache(),
+  );
   await app.register(routes.register, { prefix: "/users" });
   registerErrorHandler(app); // so thrown HttpErrors map to status codes
   await app.ready();

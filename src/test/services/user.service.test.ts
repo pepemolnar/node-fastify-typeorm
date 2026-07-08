@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import { UserService } from "../../services/user.service.js";
 import type { IUserRepository } from "../../types/user.types.js";
-import type { UnitOfWork } from "../../db/unit-of-work.js";
+import type { UnitOfWork } from "../../extras/unit-of-work.js";
+import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
 import type { User } from "../../entities/user.entity.js";
 
 // One helper builds a fake repository; each test overrides only what it cares
@@ -23,7 +24,7 @@ function fakeRepo(overrides: Partial<IUserRepository> = {}): IUserRepository {
 // transaction, but it proves the service composes its calls through the UoW.
 function makeService(repo: IUserRepository) {
   const uow: UnitOfWork = { run: (work) => work({ users: repo }) };
-  return new UserService(repo, uow);
+  return new UserService(repo, uow, new InMemoryCache());
 }
 
 describe("UserService", () => {
@@ -47,8 +48,15 @@ describe("UserService", () => {
   it("bulk create capitalizes each name and inserts through the Unit of Work", async () => {
     const create = vi.fn(async (data) => data as User);
     const repo = fakeRepo({ create });
-    const run = vi.fn((work) => work({ users: repo }));
-    const service = new UserService(repo, { run } as unknown as UnitOfWork);
+    const run = vi.fn(
+      (work: (r: { users: IUserRepository }) => Promise<User[]>) =>
+        work({ users: repo }),
+    );
+    const service = new UserService(
+      repo,
+      { run } as unknown as UnitOfWork,
+      new InMemoryCache(),
+    );
 
     await service.createUsers([
       { name: "ada lovelace", email: "ada@x.com", password: "password123" },

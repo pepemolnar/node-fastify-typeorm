@@ -55,6 +55,10 @@ Request
 
 This separation means each layer can be reasoned about — and tested — in isolation. A controller never runs a query; a model never inspects a JWT.
 
+### A note on the current structure
+
+`src/` currently groups code by **technical role** (`routes`, `controllers`, `services`, `models`), with the supporting infrastructure — adapters, resilience, guards, notifications, data source — collected under `src/extras/` so the four core layers stay legible as the project grows. This is deliberate but interim: the **final roadmap phase restructures the codebase around bounded contexts (Domain-Driven Design)** — grouping by _domain_ rather than by layer, promoting the persistence entity to a rich aggregate, and adding a second context to prove the module boundaries hold. It's sequenced last on purpose, so the reorganization happens once, after every collaborator exists.
+
 ### Cross-cutting concerns
 
 - **Global error handling** — a single [`errorHandler`](src/middlewares/errorHandler.ts) maps a custom `HttpError`, Zod validation errors, serialization errors, and unexpected failures onto consistent HTTP responses. Business code just `throw`s; the handler decides the status and shape.
@@ -135,10 +139,10 @@ This project is a living showcase, so the list below is as much a part of it as 
 - [x] **Graceful shutdown** — drain in-flight requests, close the pool, hard-timeout backstop
 - [x] **OpenAPI docs** — Swagger UI generated from the same Zod schemas
 - [x] **Containerized** — multi-stage Dockerfile + Docker Compose
-- [ ] **Redis cache layer** — a cache-aside strategy in front of read-heavy endpoints (e.g. `GET /users/:id`), with explicit invalidation on write. Introduced behind a `Cache` interface so the store is swappable.
+- [x] **Redis cache layer** — a cache-aside strategy in front of read-heavy endpoints (e.g. `GET /users/:id`), with explicit invalidation on write. Introduced behind a `Cache` interface so the store is swappable.
 - [ ] **External API integration** — consume a third-party OpenAPI service and expose it through our own layers, demonstrating an **anti-corruption layer** that maps external contracts onto our domain types (plus timeouts and graceful degradation when it's down).
 - [ ] **Background jobs / message queue** — offload slow work (e.g. sending email) to a worker via BullMQ/Redis, showing async processing and the **producer/consumer** pattern.
-- [ ] **Rate limiting** — `@fastify/rate-limit` to protect auth endpoints from brute force.
+- [x] **Rate limiting** — `@fastify/rate-limit` to protect auth endpoints from brute force.
 - [ ] **Refresh tokens & rotation** — short-lived access + long-lived refresh tokens with revocation, a more production-realistic auth flow.
 - [ ] **Email service** — transactional email (verification, password reset) behind a provider-agnostic interface.
 
@@ -151,7 +155,7 @@ This project is a living showcase, so the list below is as much a part of it as 
 - [x] **Builder pattern** — a fluent query/filter builder for complex list endpoints, replacing ad-hoc `where` object assembly.
 - [x] **Strategy pattern** — pluggable strategies for a varying policy (e.g. password-hashing algorithm, or notification channel) selected at runtime.
 - [x] **Repository & Unit of Work** — formalize the model layer behind explicit repository interfaces and wrap multi-step writes in a Unit of Work.
-- [ ] **Adapter pattern** — wrap the external API client and the cache client behind adapters so the core stays framework-agnostic.
+- [x] **Adapter pattern** — wrap the external API client and the cache client behind adapters so the core stays framework-agnostic.
 - [ ] **Domain events / Observer** — emit events (`UserRegistered`) that decoupled handlers react to, paving the way toward event-driven design.
 
 ### Standards & practices
@@ -169,8 +173,8 @@ This project is a living showcase, so the list below is as much a part of it as 
 - [ ] **Observability** — OpenTelemetry tracing + Prometheus metrics + a `/metrics` endpoint, so requests are traceable end-to-end.
 - [ ] **RFC 7807 error format** — return `application/problem+json` with machine-readable error codes, upgrading the current error envelope.
 - [ ] **API versioning** — a `/v1` prefix and a strategy for evolving the contract without breaking clients.
-- [ ] **Idempotency keys** — make unsafe POSTs safely retryable.
-- [ ] **Resilience** — retry with backoff and a circuit breaker around outbound calls to the external API.
+- [x] **Idempotency keys** — make unsafe POSTs safely retryable.
+- [x] **Resilience** — retry with backoff and a circuit breaker around outbound calls to the external API.
 - [x] **Security hardening** — `@fastify/helmet` for security headers and a considered CORS policy.
 - [x] **Database seeding** — a seed script for realistic local/demo data.
 - [x] **Pre-commit hooks** — Husky + lint-staged to run lint/format/typecheck before commits land.

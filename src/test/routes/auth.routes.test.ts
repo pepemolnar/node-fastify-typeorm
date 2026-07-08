@@ -6,7 +6,7 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { AuthRoutes } from "../../routes/auth.routes.js";
-import { authPlugin } from "../../plugins/auth.plugin.js";
+import { authPlugin } from "../../extras/auth.plugin.js";
 import { registerErrorHandler } from "../../middlewares/errorHandler.js";
 import type { AuthController } from "../../controllers/auth.controller.js";
 

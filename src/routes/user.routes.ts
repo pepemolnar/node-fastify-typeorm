@@ -14,13 +14,19 @@ import {
 } from "../schemas/user.schema.js";
 import { UserController } from "../controllers/user.controller.js";
 import { ZodTypeProvider } from "fastify-type-provider-zod";
-import { authenticate, requireRole } from "../guards/auth.guards.js";
+import { authenticate, requireRole } from "../extras/guards/auth.guards.js";
+import { idempotency } from "../extras/guards/idempotency.js";
+import type { Cache } from "../extras/adapters/cache.port.js";
 
 export class UserRoutes {
-  constructor(private controller: UserController) {}
+  constructor(
+    private controller: UserController,
+    private cache: Cache,
+  ) {}
 
   register = async (app: FastifyInstance) => {
     const route = app.withTypeProvider<ZodTypeProvider>();
+    const idem = idempotency(this.cache);
 
     route.get(
       "/",
@@ -52,12 +58,14 @@ export class UserRoutes {
     route.post(
       "/",
       {
-        preHandler: [authenticate, requireRole("admin")],
+        preHandler: [authenticate, requireRole("admin"), idem.replay],
+        onSend: idem.remember,
         schema: {
           body: createUserSchema,
           response: {
             201: userResponseSchema,
             400: errorResponseSchema,
+            409: errorResponseSchema,
           },
         },
       },

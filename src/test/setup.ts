@@ -7,3 +7,4 @@ process.env.POSTGRES_USER ??= "practice";
 process.env.POSTGRES_PASSWORD ??= "practice";
 process.env.POSTGRES_DB ??= "practice";
 process.env.JWT_SECRET ??= "test-jwt-secret-at-least-32-characters-long";
+process.env.REDIS_URL ??= "redis://localhost:6379";

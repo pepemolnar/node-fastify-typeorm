@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Logger } from "pino";
 import { NotificationService } from "../../services/notification.service.js";
-import { NotifierFactory } from "../../notifications/notifier.js";
+import { NotifierFactory } from "../../extras/notifications/notifier.js";
 import type { Notifier } from "../../types/notification.types.js";
 
 // A single fake notifier whose send() behaviour each test controls.

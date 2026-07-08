@@ -1,7 +1,6 @@
 import Fastify, { type FastifyBaseLogger } from "fastify";
 import type { Logger } from "pino";
 import { env } from "./config/env.config.js";
-import { createLogger } from "./config/logger.js";
 import { routes } from "./routes/index.js";
 import { registerErrorHandler } from "./middlewares/errorHandler.js";
 import { Container } from "./container.js";
@@ -12,9 +11,12 @@ import {
 } from "fastify-type-provider-zod";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
-import { authPlugin } from "./plugins/auth.plugin.js";
+import { authPlugin } from "./extras/auth.plugin.js";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyCors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
+import { Redis } from "ioredis";
+import { createLogger } from "./extras/logger.js";
 
 export async function createApp(container: Container, logger?: Logger) {
   const app = Fastify({
@@ -48,6 +50,15 @@ export async function createApp(container: Container, logger?: Logger) {
 
   await app.register(fastifySwaggerUi, {
     routePrefix: "/docs",
+  });
+
+  await app.register(rateLimit, {
+    global: false,
+    // Redis-backed store shares the count across instances. In tests fall back
+    // to the in-memory store so we don't open a real connection.
+    ...(env.NODE_ENV === "test" ? {} : { redis: new Redis(env.REDIS_URL) }),
+    max: 100,
+    timeWindow: "1 minute",
   });
 
   app.addHook("onSend", async (req, reply) => {

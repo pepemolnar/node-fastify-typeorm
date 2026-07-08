@@ -16,5 +16,6 @@ export const env = z
     JWT_SECRET: z.string().min(32),
     JWT_EXPIRES_IN: z.string().default("15m"),
     CORS_ORIGIN: z.string().default("*"),
+    REDIS_URL: z.string().min(1),
   })
   .parse(process.env);

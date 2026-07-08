@@ -8,7 +8,7 @@ import { makeTestDataSource } from "./test-data-source.js";
 import { UserModel } from "../../models/user.model.js";
 import { User } from "../../entities/user.entity.js";
 import { decodeCursor, type Cursor } from "../../helpers/cursor.helper.js";
-import { TypeOrmUnitOfWork } from "../../db/unit-of-work.js";
+import { TypeOrmUnitOfWork } from "../../extras/unit-of-work.js";
 
 let container: StartedPostgreSqlContainer;
 let ds: DataSource;

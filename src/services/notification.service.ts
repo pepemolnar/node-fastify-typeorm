@@ -1,6 +1,6 @@
 import type { Logger } from "pino";
-import type { NotifierFactory } from "../notifications/notifier.js";
-import type { Channel } from "../notifications/notifier.js";
+import type { NotifierFactory } from "../extras/notifications/notifier.js";
+import type { Channel } from "../extras/notifications/notifier.js";
 
 export class NotificationService {
   constructor(

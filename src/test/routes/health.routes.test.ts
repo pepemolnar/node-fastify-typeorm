@@ -5,10 +5,11 @@ import { AuthRoutes } from "../../routes/auth.routes.js";
 import type { AuthController } from "../../controllers/auth.controller.js";
 import { describe, expect, it } from "vitest";
 import { createApp } from "../../app.js";
+import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
 
 function buildContainer(ready: boolean): Container {
   return {
-    userRoutes: new UserRoutes({} as UserController),
+    userRoutes: new UserRoutes({} as UserController, new InMemoryCache()),
     authRoutes: new AuthRoutes({} as AuthController),
     checkReadiness: ready
       ? async () => {}

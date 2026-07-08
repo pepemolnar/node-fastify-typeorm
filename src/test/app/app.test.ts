@@ -5,11 +5,12 @@ import type { UserController } from "../../controllers/user.controller.js";
 import { AuthRoutes } from "../../routes/auth.routes.js";
 import type { AuthController } from "../../controllers/auth.controller.js";
 import type { Container } from "../../container.js";
+import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
 
 // The controller is never invoked while fetching the spec, so a stub is fine.
 function buildContainer(): Container {
   return {
-    userRoutes: new UserRoutes({} as UserController),
+    userRoutes: new UserRoutes({} as UserController, new InMemoryCache()),
     authRoutes: new AuthRoutes({} as AuthController),
     checkReadiness: async () => {},
   };

@@ -1,7 +1,7 @@
 import { capitalizeWords } from "../helpers/string.helper.js";
 import { hashPassword } from "../helpers/password.helper.js";
 import { HttpError } from "../middlewares/errorHandler.js";
-import type { UnitOfWork } from "../db/unit-of-work.js";
+import type { UnitOfWork } from "../extras/unit-of-work.js";
 import { User } from "../entities/user.entity.js";
 import {
   CreateUserDto,
@@ -12,11 +12,16 @@ import {
   IUserRepository,
 } from "../types/user.types.js";
 import { decodeCursor } from "../helpers/cursor.helper.js";
+import { Cache } from "../extras/adapters/cache.port.js";
 
 export class UserService {
+  private TTL = 60;
+  private userKey = (id: string) => `user:${id}`;
+
   constructor(
     private users: IUserRepository,
     private uow: UnitOfWork,
+    private cache: Cache,
   ) {}
 
   async getUsers(
@@ -36,9 +41,13 @@ export class UserService {
   }
 
   async getUser(id: string): Promise<User> {
-    const user = await this.users.getById(id);
+    const cachedUser = await this.cache.get<User>(this.userKey(id));
+    if (cachedUser) return cachedUser;
 
+    const user = await this.users.getById(id);
     if (!user) throw new HttpError(404, "User not found");
+
+    await this.cache.set(this.userKey(id), user, this.TTL);
 
     return user;
   }
@@ -73,10 +82,13 @@ export class UserService {
   }
 
   async updateUser(id: string, data: UpdateUserDto): Promise<User | null> {
-    return this.users.update(id, data);
+    const updated = await this.users.update(id, data);
+    await this.cache.del(this.userKey(id));
+    return updated;
   }
 
   async deleteUser(id: string): Promise<void> {
     await this.users.softDelete(id);
+    await this.cache.del(this.userKey(id));
   }
 }
