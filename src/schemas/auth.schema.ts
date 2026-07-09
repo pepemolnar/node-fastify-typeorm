@@ -11,6 +11,11 @@ export const registerSchema = z.object({
   password: z.string().min(8),
 });
 
-export const tokenResponseSchema = z.object({
-  token: z.string(),
+export const refreshSchema = z.object({
+  refreshToken: z.string(),
+});
+
+export const tokenPairResponseSchema = z.object({
+  accessToken: z.string(),
+  refreshToken: z.string(),
 });

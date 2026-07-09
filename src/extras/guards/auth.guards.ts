@@ -6,6 +6,10 @@ export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
   } catch {
     return reply.code(401).send({ error: "Unauthorized" });
   }
+
+  if (req.user.typ === "refresh") {
+    return reply.code(401).send({ error: "Unauthorized" });
+  }
 }
 
 export function requireRole(...allowed: Array<"user" | "admin">) {

@@ -11,7 +11,7 @@ import {
 } from "fastify-type-provider-zod";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
-import { authPlugin } from "./extras/auth.plugin.js";
+import { authPlugin } from "./extras/auth/auth.plugin.js";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyCors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";

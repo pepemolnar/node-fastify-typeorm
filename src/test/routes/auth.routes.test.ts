@@ -6,7 +6,7 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { AuthRoutes } from "../../routes/auth.routes.js";
-import { authPlugin } from "../../extras/auth.plugin.js";
+import { authPlugin } from "../../extras/auth/auth.plugin.js";
 import { registerErrorHandler } from "../../middlewares/errorHandler.js";
 import type { AuthController } from "../../controllers/auth.controller.js";
 
@@ -76,10 +76,10 @@ describe("auth routes", () => {
     expect(loginController).not.toHaveBeenCalled();
   });
 
-  it("POST /auth/login returns a token on success", async () => {
+  it("POST /auth/login returns an access + refresh token pair on success", async () => {
     const loginController = vi.fn(
       async (_req: FastifyRequest, reply: FastifyReply) =>
-        reply.send({ token: "signed.jwt.token" }),
+        reply.send({ accessToken: "access.jwt", refreshToken: "refresh.jwt" }),
     );
     const app = await buildApp({ loginController });
 
@@ -90,6 +90,60 @@ describe("auth routes", () => {
     });
 
     expect(res.statusCode).toBe(200);
-    expect(res.json()).toEqual({ token: "signed.jwt.token" });
+    expect(res.json()).toEqual({
+      accessToken: "access.jwt",
+      refreshToken: "refresh.jwt",
+    });
+  });
+
+  it("POST /auth/refresh rejects a missing refreshToken with 400", async () => {
+    const refreshController = vi.fn();
+    const app = await buildApp({ refreshController });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      payload: {},
+    });
+
+    expect(res.statusCode).toBe(400);
+    expect(refreshController).not.toHaveBeenCalled();
+  });
+
+  it("POST /auth/refresh returns a rotated token pair on success", async () => {
+    const refreshController = vi.fn(
+      async (_req: FastifyRequest, reply: FastifyReply) =>
+        reply.send({ accessToken: "new.access", refreshToken: "new.refresh" }),
+    );
+    const app = await buildApp({ refreshController });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/refresh",
+      payload: { refreshToken: "old.refresh" },
+    });
+
+    expect(res.statusCode).toBe(200);
+    expect(res.json()).toEqual({
+      accessToken: "new.access",
+      refreshToken: "new.refresh",
+    });
+  });
+
+  it("POST /auth/logout returns 204", async () => {
+    const logoutController = vi.fn(
+      async (_req: FastifyRequest, reply: FastifyReply) =>
+        reply.status(204).send(),
+    );
+    const app = await buildApp({ logoutController });
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/auth/logout",
+      payload: { refreshToken: "some.refresh" },
+    });
+
+    expect(res.statusCode).toBe(204);
+    expect(logoutController).toHaveBeenCalledOnce();
   });
 });

@@ -1,14 +1,17 @@
 import { describe, it, expect } from "vitest";
+import type { Logger } from "pino";
 import { NotifierFactory } from "../../extras/notifications/notifier.js";
 import { EmailNotifier } from "../../extras/notifications/email.notifier.js";
 import { SmsNotifier } from "../../extras/notifications/sms.notifier.js";
 import { LogNotifier } from "../../extras/notifications/log.notifier.js";
 
+const noopLogger = { info: () => {} } as unknown as Logger;
+
 function factory() {
   return new NotifierFactory([
     new EmailNotifier(),
     new SmsNotifier(),
-    new LogNotifier(),
+    new LogNotifier(noopLogger),
   ]);
 }
 
@@ -23,7 +26,7 @@ describe("NotifierFactory", () => {
   });
 
   it("throws a 400 for a channel with no registered notifier", () => {
-    const f = new NotifierFactory([new LogNotifier()]);
+    const f = new NotifierFactory([new LogNotifier(noopLogger)]);
     expect(() => f.for("email")).toThrowError(
       expect.objectContaining({ status: 400 }),
     );

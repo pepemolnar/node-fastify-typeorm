@@ -1,4 +1,7 @@
 import { z } from "zod";
+const source = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => value !== ""),
+);
 
 export const env = z
   .object({
@@ -13,9 +16,11 @@ export const env = z
     NODE_ENV: z
       .enum(["development", "production", "test"])
       .default("development"),
-    JWT_SECRET: z.string().min(32),
-    JWT_EXPIRES_IN: z.string().default("15m"),
     CORS_ORIGIN: z.string().default("*"),
     REDIS_URL: z.string().min(1),
+    JWT_SECRET: z.string().min(32),
+    JWT_ACCESS_EXPIRES_IN: z.string().default("15m"),
+    JWT_REFRESH_EXPIRES_IN: z.string().default("7d"),
+    EMAIL_FROM: z.string().default("no-reply@example.com"),
   })
-  .parse(process.env);
+  .parse(source);

@@ -6,7 +6,7 @@ import {
   validatorCompiler,
 } from "fastify-type-provider-zod";
 import { UserRoutes } from "../../routes/user.routes.js";
-import { authPlugin } from "../../extras/auth.plugin.js";
+import { authPlugin } from "../../extras/auth/auth.plugin.js";
 import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
 import { registerErrorHandler } from "../../middlewares/errorHandler.js";
 import type { UserController } from "../../controllers/user.controller.js";
@@ -43,7 +43,7 @@ describe("user routes", () => {
         }),
     );
     const app = await buildApp({ getUserController });
-    const token = app.jwt.sign({ sub: ID, role: "user" });
+    const token = app.jwt.sign({ sub: ID, role: "user", typ: "access" });
 
     const res = await app.inject({
       method: "GET",
@@ -83,7 +83,7 @@ describe("user routes", () => {
         }),
     );
     const app = await buildApp({ getUserController });
-    const token = app.jwt.sign({ sub: ID, role: "user" });
+    const token = app.jwt.sign({ sub: ID, role: "user", typ: "access" });
 
     const res = await app.inject({
       method: "GET",
@@ -108,7 +108,7 @@ describe("user routes", () => {
         reply.status(204).send(),
     );
     const app = await buildApp({ deleteUserController });
-    const token = app.jwt.sign({ sub: ID, role: "admin" });
+    const token = app.jwt.sign({ sub: ID, role: "admin", typ: "access" });
 
     const res = await app.inject({
       method: "DELETE",
@@ -131,7 +131,7 @@ describe("user routes", () => {
   it("DELETE /users/:id forbids a non-admin with 403", async () => {
     const deleteUserController = vi.fn();
     const app = await buildApp({ deleteUserController });
-    const token = app.jwt.sign({ sub: ID, role: "user" });
+    const token = app.jwt.sign({ sub: ID, role: "user", typ: "access" });
 
     const res = await app.inject({
       method: "DELETE",
@@ -151,6 +151,27 @@ describe("user routes", () => {
 
     expect(res.statusCode).toBe(401);
     expect(getUsersController).not.toHaveBeenCalled();
+  });
+
+  it("GET /users/:id rejects a refresh token with 401 (it isn't an access token)", async () => {
+    const getUserController = vi.fn();
+    const app = await buildApp({ getUserController });
+    const refresh = app.jwt.sign({
+      sub: ID,
+      role: "user",
+      typ: "refresh",
+      jti: "j1",
+      family: "f1",
+    });
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/users/${ID}`,
+      headers: { authorization: `Bearer ${refresh}` },
+    });
+
+    expect(res.statusCode).toBe(401);
+    expect(getUserController).not.toHaveBeenCalled();
   });
 
   it("POST /users rejects an invalid email with 400 before hitting the controller", async () => {
