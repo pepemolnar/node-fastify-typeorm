@@ -15,9 +15,9 @@ async function buildApp(controller: Partial<AuthController>) {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   await app.register(authPlugin);
+  registerErrorHandler(app); // set before routes so encapsulated children inherit it
   const routes = new AuthRoutes(controller as AuthController);
   await app.register(routes.register, { prefix: "/auth" });
-  registerErrorHandler(app);
   await app.ready();
   return app;
 }

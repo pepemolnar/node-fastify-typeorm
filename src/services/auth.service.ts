@@ -42,7 +42,7 @@ export class AuthService {
     const user = await this.users.getForLogin(email);
 
     if (!user || !(await verifyPassword(password, user.passwordHash))) {
-      throw new HttpError(401, "Invalid credentials");
+      throw new HttpError(401, "Invalid credentials", "INVALID_CREDENTIALS");
     }
 
     return { id: user.id, role: user.role };

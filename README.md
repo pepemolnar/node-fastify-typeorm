@@ -63,7 +63,7 @@ This separation means each layer can be reasoned about — and tested — in iso
 
 ### Cross-cutting concerns
 
-- **Global error handling** — a single [`errorHandler`](src/middlewares/errorHandler.ts) maps a custom `HttpError`, Zod validation errors, serialization errors, and unexpected failures onto consistent HTTP responses. Business code just `throw`s; the handler decides the status and shape.
+- **Global error handling (RFC 7807)** — a single [`errorHandler`](src/middlewares/errorHandler.ts) maps a custom `HttpError`, Zod validation errors, serialization errors, guard rejections, unmatched routes, and unexpected failures onto a consistent [`application/problem+json`](https://datatracker.ietf.org/doc/html/rfc7807) body — `{ type, title, status, code, detail, instance, errors? }` — with a machine-readable `code` (e.g. `EMAIL_ALREADY_EXISTS`, `VALIDATION_ERROR`) clients can branch on. Business code just `throw`s; the handler decides the status and shape.
 - **Request validation & typing** — every route declares Zod schemas for its body, params, query, and responses. Invalid input is rejected before it reaches a controller, and the same schemas drive TypeScript types _and_ the OpenAPI documentation — a single source of truth.
 - **Structured logging** — Pino is wired in with per-request IDs (`x-request-id`), so every log line is correlatable and JSON-structured in production (pretty-printed in development).
 - **Graceful shutdown** — SIGINT/SIGTERM drain in-flight requests and close the DB pool, with a hard timeout so a hung drain can't wedge a deploy. See [`index.ts`](src/index.ts).
@@ -184,8 +184,8 @@ This project is a living showcase, so the list below is as much a part of it as 
 - [x] **CI** — GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))
 - [x] **Lint & format** — ESLint + Prettier
 - [ ] **Observability** — OpenTelemetry tracing + Prometheus metrics + a `/metrics` endpoint, so requests are traceable end-to-end.
-- [ ] **RFC 7807 error format** — return `application/problem+json` with machine-readable error codes, upgrading the current error envelope.
-- [ ] **API versioning** — a `/v1` prefix and a strategy for evolving the contract without breaking clients.
+- [x] **RFC 7807 error format** — return `application/problem+json` with machine-readable error codes, upgrading the current error envelope.
+- [x] **API versioning** — a `/v1` prefix and a strategy for evolving the contract without breaking clients.
 - [x] **Idempotency keys** — make unsafe POSTs safely retryable.
 - [x] **Resilience** — retry with backoff and a circuit breaker around outbound calls to the external API.
 - [x] **Security hardening** — `@fastify/helmet` for security headers and a considered CORS policy.
@@ -257,21 +257,23 @@ The API is now at `http://localhost:3000`, with interactive docs at **`http://lo
 
 ## API overview
 
-| Method   | Path             | Auth  | Description                                     |
-| -------- | ---------------- | ----- | ----------------------------------------------- |
-| `POST`   | `/auth/register` | —     | Create an account                               |
-| `POST`   | `/auth/login`    | —     | Obtain an access + refresh token pair           |
-| `POST`   | `/auth/refresh`  | —     | Rotate: exchange a refresh token for a new pair |
-| `POST`   | `/auth/logout`   | —     | Revoke a refresh token (session)                |
-| `GET`    | `/users`         | user  | List users (offset-paginated, filterable)       |
-| `GET`    | `/users/cursor`  | user  | List users (cursor / keyset pagination)         |
-| `GET`    | `/users/:id`     | user  | Get one user                                    |
-| `POST`   | `/users`         | admin | Create a user                                   |
-| `POST`   | `/users/bulk`    | admin | Create many (transactional)                     |
-| `PUT`    | `/users/:id`     | admin | Update a user                                   |
-| `DELETE` | `/users/:id`     | admin | Soft-delete a user                              |
-| `GET`    | `/health`        | —     | Liveness probe                                  |
-| `GET`    | `/ready`         | —     | Readiness probe (DB check)                      |
+All application endpoints live under a `/v1` prefix so the contract can evolve without breaking clients; the infrastructure probes (`/health`, `/ready`) and the docs stay unversioned.
+
+| Method   | Path                | Auth  | Description                                     |
+| -------- | ------------------- | ----- | ----------------------------------------------- |
+| `POST`   | `/v1/auth/register` | —     | Create an account                               |
+| `POST`   | `/v1/auth/login`    | —     | Obtain an access + refresh token pair           |
+| `POST`   | `/v1/auth/refresh`  | —     | Rotate: exchange a refresh token for a new pair |
+| `POST`   | `/v1/auth/logout`   | —     | Revoke a refresh token (session)                |
+| `GET`    | `/v1/users`         | user  | List users (offset-paginated, filterable)       |
+| `GET`    | `/v1/users/cursor`  | user  | List users (cursor / keyset pagination)         |
+| `GET`    | `/v1/users/:id`     | user  | Get one user                                    |
+| `POST`   | `/v1/users`         | admin | Create a user                                   |
+| `POST`   | `/v1/users/bulk`    | admin | Create many (transactional)                     |
+| `PUT`    | `/v1/users/:id`     | admin | Update a user                                   |
+| `DELETE` | `/v1/users/:id`     | admin | Soft-delete a user                              |
+| `GET`    | `/health`           | —     | Liveness probe                                  |
+| `GET`    | `/ready`            | —     | Readiness probe (DB check)                      |
 
 The full, always-up-to-date contract is served from `/docs` (generated from the same Zod schemas the routes validate against).
 

@@ -58,7 +58,12 @@ export class AuthController {
       payload.jti,
       jti,
     );
-    if (result !== "OK") throw new HttpError(401, "Invalid refresh token");
+    if (result !== "OK")
+      throw new HttpError(
+        401,
+        "Invalid refresh token",
+        "INVALID_REFRESH_TOKEN",
+      );
 
     return reply.send(
       await this.signPair(reply, {
@@ -91,10 +96,18 @@ export class AuthController {
     try {
       payload = req.server.jwt.verify<JwtUser>(token);
     } catch {
-      throw new HttpError(401, "Invalid refresh token");
+      throw new HttpError(
+        401,
+        "Invalid refresh token",
+        "INVALID_REFRESH_TOKEN",
+      );
     }
     if (payload.typ !== "refresh" || !payload.jti || !payload.family) {
-      throw new HttpError(401, "Invalid refresh token");
+      throw new HttpError(
+        401,
+        "Invalid refresh token",
+        "INVALID_REFRESH_TOKEN",
+      );
     }
     return payload as Required<JwtUser>;
   }

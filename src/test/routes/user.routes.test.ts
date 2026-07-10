@@ -20,12 +20,12 @@ async function buildApp(controller: Partial<UserController>) {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   await app.register(authPlugin); // guards need req.jwtVerify / app.jwt.sign
+  registerErrorHandler(app); // set before routes so encapsulated children inherit it
   const routes = new UserRoutes(
     controller as UserController,
     new InMemoryCache(),
   );
   await app.register(routes.register, { prefix: "/users" });
-  registerErrorHandler(app); // so thrown HttpErrors map to status codes
   await app.ready();
   return app;
 }
@@ -125,6 +125,8 @@ describe("user routes", () => {
     const res = await app.inject({ method: "DELETE", url: `/users/${ID}` });
 
     expect(res.statusCode).toBe(401);
+    expect(res.headers["content-type"]).toContain("application/problem+json");
+    expect(res.json()).toMatchObject({ status: 401, code: "UNAUTHENTICATED" });
     expect(deleteUserController).not.toHaveBeenCalled();
   });
 

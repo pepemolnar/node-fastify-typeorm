@@ -54,20 +54,30 @@ export async function createApp(container: Container, logger?: Logger) {
 
   await app.register(rateLimit, {
     global: false,
-    // Redis-backed store shares the count across instances. In tests fall back
-    // to the in-memory store so we don't open a real connection.
     ...(env.NODE_ENV === "test" ? {} : { redis: new Redis(env.REDIS_URL) }),
     max: 100,
     timeWindow: "1 minute",
+    errorResponseBuilder: (req, context) => ({
+      type: "about:blank",
+      title: "Too Many Requests",
+      status: 429,
+      code: "RATE_LIMITED",
+      detail: `Rate limit exceeded, retry in ${context.after}`,
+      instance: req.id,
+    }),
   });
 
-  app.addHook("onSend", async (req, reply) => {
+  app.addHook("onSend", async (req, reply, payload) => {
     reply.header("x-request-id", req.id);
+    if (reply.statusCode === 429) reply.type("application/problem+json");
+    return payload;
   });
 
   await app.register(authPlugin);
-  await app.register(async (instance) => routes(instance, container));
 
   registerErrorHandler(app);
+
+  await app.register(async (instance) => routes(instance, container));
+
   return app;
 }

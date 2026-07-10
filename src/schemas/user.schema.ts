@@ -30,11 +30,6 @@ export const userResponseSchema = z.object({
 
 export const usersResponseSchema = z.array(userResponseSchema);
 
-export const errorResponseSchema = z.object({
-  error: z.string(),
-  message: z.string().optional(),
-});
-
 export const userParamsSchema = z.object({
   id: z.uuid(),
 });

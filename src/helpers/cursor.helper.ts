@@ -36,6 +36,6 @@ export function decodeCursor(raw: string): Cursor {
 
     return { createdAt: date, id };
   } catch {
-    throw new HttpError(400, "Invalid pagination cursor");
+    throw new HttpError(400, "Invalid pagination cursor", "INVALID_CURSOR");
   }
 }

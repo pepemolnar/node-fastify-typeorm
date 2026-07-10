@@ -33,10 +33,6 @@ export class UserModel extends BaseModel<User> implements IUserRepository {
     return { data, total, limit, offset };
   }
 
-  // Keyset pagination over the stable (createdAt, id) sort key. Given a cursor,
-  // fetch the rows that fall strictly after it: either older by timestamp, or
-  // same timestamp but a smaller id (the tiebreaker). Fetching limit+1 lets us
-  // tell whether a further page exists without a second COUNT query.
   async getPage(limit: number, cursor?: Cursor): Promise<UserCursorPage> {
     const where = cursor
       ? [
@@ -82,7 +78,11 @@ export class UserModel extends BaseModel<User> implements IUserRepository {
       where: { email: data.email },
     });
     if (existing)
-      throw new HttpError(400, `Email ${data.email} already exists`);
+      throw new HttpError(
+        409,
+        `Email ${data.email} already exists`,
+        "EMAIL_ALREADY_EXISTS",
+      );
 
     return this.repo().save(this.repo().create(data));
   }

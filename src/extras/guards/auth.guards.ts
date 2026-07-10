@@ -1,21 +1,22 @@
-import type { FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyRequest } from "fastify";
+import { HttpError } from "../../middlewares/errorHandler.js";
 
-export async function authenticate(req: FastifyRequest, reply: FastifyReply) {
+export async function authenticate(req: FastifyRequest) {
   try {
     await req.jwtVerify();
   } catch {
-    return reply.code(401).send({ error: "Unauthorized" });
+    throw new HttpError(401, "Authentication required", "UNAUTHENTICATED");
   }
 
   if (req.user.typ === "refresh") {
-    return reply.code(401).send({ error: "Unauthorized" });
+    throw new HttpError(401, "Authentication required", "UNAUTHENTICATED");
   }
 }
 
 export function requireRole(...allowed: Array<"user" | "admin">) {
-  return async (req: FastifyRequest, reply: FastifyReply) => {
+  return async (req: FastifyRequest) => {
     if (!allowed.includes(req.user.role)) {
-      return reply.code(403).send({ error: "Forbidden" });
+      throw new HttpError(403, "Insufficient permissions", "FORBIDDEN");
     }
   };
 }

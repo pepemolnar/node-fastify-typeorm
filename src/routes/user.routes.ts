@@ -5,7 +5,6 @@ import {
   userQuerySchema,
   userResponseSchema,
   usersResponseSchema,
-  errorResponseSchema,
   userParamsSchema,
   paginatedUsersResponseSchema,
   createUsersSchema,
@@ -17,6 +16,7 @@ import { ZodTypeProvider } from "fastify-type-provider-zod";
 import { authenticate, requireRole } from "../extras/guards/auth.guards.js";
 import { idempotency } from "../extras/guards/idempotency.js";
 import type { Cache } from "../extras/adapters/cache.port.js";
+import { problemDetailsSchema } from "../schemas/general.schema.js";
 
 export class UserRoutes {
   constructor(
@@ -48,7 +48,7 @@ export class UserRoutes {
           querystring: cursorQuerySchema,
           response: {
             200: cursorPageResponseSchema,
-            400: errorResponseSchema,
+            400: problemDetailsSchema,
           },
         },
       },
@@ -64,8 +64,8 @@ export class UserRoutes {
           body: createUserSchema,
           response: {
             201: userResponseSchema,
-            400: errorResponseSchema,
-            409: errorResponseSchema,
+            400: problemDetailsSchema,
+            409: problemDetailsSchema,
           },
         },
       },
@@ -92,7 +92,7 @@ export class UserRoutes {
           params: userParamsSchema,
           response: {
             200: userResponseSchema,
-            404: errorResponseSchema,
+            404: problemDetailsSchema,
           },
         },
       },
@@ -108,8 +108,8 @@ export class UserRoutes {
           body: updateUserSchema,
           response: {
             200: userResponseSchema,
-            400: errorResponseSchema,
-            404: errorResponseSchema,
+            400: problemDetailsSchema,
+            404: problemDetailsSchema,
           },
         },
       },

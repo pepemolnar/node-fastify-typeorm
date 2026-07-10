@@ -52,8 +52,8 @@ async function buildApp() {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
   await app.register(authPlugin);
+  registerErrorHandler(app); // set before routes so encapsulated children inherit it
   await app.register(new AuthRoutes(controller).register, { prefix: "/auth" });
-  registerErrorHandler(app);
   await app.ready();
   return app;
 }

@@ -98,13 +98,13 @@ describe("UserModel", () => {
     expect(update).toHaveBeenCalledWith("1", { isDeleted: true });
   });
 
-  it("create rejects a duplicate email with 400", async () => {
+  it("create rejects a duplicate email with 409", async () => {
     const existing = { id: "1", email: "ada@x.com" } as User;
     const model = new UserModel(
       fakeManager(fakeRepo({ findOne: vi.fn(async () => existing) })),
     );
     await expect(
       model.create({ name: "Ada", email: "ada@x.com", passwordHash: "hashed" }),
-    ).rejects.toMatchObject({ status: 400 });
+    ).rejects.toMatchObject({ status: 409, code: "EMAIL_ALREADY_EXISTS" });
   });
 });

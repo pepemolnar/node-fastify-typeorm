@@ -26,7 +26,7 @@ describe("OpenAPI docs", () => {
     expect(res.statusCode).toBe(200);
     const spec = res.json();
     expect(spec.openapi).toBeDefined();
-    expect(spec.paths).toHaveProperty("/users/{id}");
+    expect(spec.paths).toHaveProperty("/v1/users/{id}");
 
     await app.close();
   });

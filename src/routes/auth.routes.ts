@@ -7,11 +7,9 @@ import {
   refreshSchema,
   tokenPairResponseSchema,
 } from "../schemas/auth.schema.js";
-import {
-  errorResponseSchema,
-  userResponseSchema,
-} from "../schemas/user.schema.js";
+import { userResponseSchema } from "../schemas/user.schema.js";
 import { AuthController } from "../controllers/auth.controller.js";
+import { problemDetailsSchema } from "../schemas/general.schema.js";
 
 export class AuthRoutes {
   constructor(private controller: AuthController) {}
@@ -26,7 +24,8 @@ export class AuthRoutes {
           body: registerSchema,
           response: {
             201: userResponseSchema,
-            400: errorResponseSchema,
+            400: problemDetailsSchema,
+            409: problemDetailsSchema,
           },
         },
       },
@@ -41,7 +40,7 @@ export class AuthRoutes {
           body: loginSchema,
           response: {
             200: tokenPairResponseSchema,
-            401: errorResponseSchema,
+            401: problemDetailsSchema,
           },
         },
       },
@@ -56,7 +55,7 @@ export class AuthRoutes {
           body: refreshSchema,
           response: {
             200: tokenPairResponseSchema,
-            401: errorResponseSchema,
+            401: problemDetailsSchema,
           },
         },
       },
