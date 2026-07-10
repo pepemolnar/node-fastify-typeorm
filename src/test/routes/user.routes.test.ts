@@ -5,11 +5,11 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
-import { UserRoutes } from "../../routes/user.routes.js";
-import { authPlugin } from "../../extras/auth/auth.plugin.js";
-import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
-import { registerErrorHandler } from "../../middlewares/errorHandler.js";
-import type { UserController } from "../../controllers/user.controller.js";
+import { UserRoutes } from "../../modules/users/interface/user.routes.js";
+import { authPlugin } from "../../modules/auth/infrastructure/auth.plugin.js";
+import { InMemoryCache } from "../../shared/infrastructure/cache/in-memory.cache.js";
+import { registerErrorHandler } from "../../shared/interface/error-handler.js";
+import type { UserController } from "../../modules/users/interface/user.controller.js";
 
 const ID = "123e4567-e89b-12d3-a456-426614174000";
 

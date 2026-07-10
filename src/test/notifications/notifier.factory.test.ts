@@ -1,9 +1,9 @@
 import { describe, it, expect } from "vitest";
 import type { Logger } from "pino";
-import { NotifierFactory } from "../../extras/notifications/notifier.js";
-import { EmailNotifier } from "../../extras/notifications/email.notifier.js";
-import { SmsNotifier } from "../../extras/notifications/sms.notifier.js";
-import { LogNotifier } from "../../extras/notifications/log.notifier.js";
+import { NotifierFactory } from "../../modules/notifications/application/notifier.factory.js";
+import { EmailNotifier } from "../../modules/notifications/infrastructure/email.notifier.js";
+import { SmsNotifier } from "../../modules/notifications/infrastructure/sms.notifier.js";
+import { LogNotifier } from "../../modules/notifications/infrastructure/log.notifier.js";
 
 const noopLogger = { info: () => {} } as unknown as Logger;
 

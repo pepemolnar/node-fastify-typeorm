@@ -1,7 +1,9 @@
 /// <reference types="vite/client" />
 import "reflect-metadata";
 import { DataSource } from "typeorm";
-import { User } from "../../entities/user.entity.js";
+import { User } from "../../modules/users/infrastructure/user.entity.js";
+import { ProjectEntity } from "../../modules/projects/infrastructure/project.entity.js";
+import { TaskEntity } from "../../modules/projects/infrastructure/task.entity.js";
 
 // Vitest resolves this glob through its SWC transform (unlike TypeORM's own
 // directory loader, which imports the raw .ts and chokes on the type-only
@@ -18,7 +20,7 @@ export function makeTestDataSource(url: string) {
   return new DataSource({
     type: "postgres",
     url,
-    entities: [User],
+    entities: [User, ProjectEntity, TaskEntity],
     migrations,
     synchronize: false, // prove the MIGRATIONS build the schema, like prod
   });

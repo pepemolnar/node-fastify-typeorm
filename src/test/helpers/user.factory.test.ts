@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createUserSchema } from "../../schemas/user.schema.js";
+import { createUserSchema } from "../../modules/users/interface/user.schema.js";
 import {
   makeUser,
   makeUsers,
   DEFAULT_PASSWORD,
-} from "../../extras/user.factory.js";
+} from "../../modules/users/infrastructure/user.factory.js";
 
 describe("user factory", () => {
   it("produces a user that satisfies createUserSchema", () => {

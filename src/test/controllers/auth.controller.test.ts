@@ -4,15 +4,16 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
-import { AuthController } from "../../controllers/auth.controller.js";
-import { AuthRoutes } from "../../routes/auth.routes.js";
-import { authPlugin } from "../../extras/auth/auth.plugin.js";
-import { registerErrorHandler } from "../../middlewares/errorHandler.js";
-import type { AuthService } from "../../services/auth.service.js";
+import { AuthController } from "../../modules/auth/interface/auth.controller.js";
+import { AuthRoutes } from "../../modules/auth/interface/auth.routes.js";
+import { authPlugin } from "../../modules/auth/infrastructure/auth.plugin.js";
+import { registerErrorHandler } from "../../shared/interface/error-handler.js";
+import type { RegisterUser } from "../../modules/auth/application/register-user.js";
+import type { VerifyCredentials } from "../../modules/auth/application/verify-credentials.js";
 import type {
   IRefreshTokenStore,
   RotateResult,
-} from "../../extras/auth/refresh-token-store.js";
+} from "../../modules/auth/application/refresh-token-store.port.js";
 
 // In-memory store mirroring the Lua ROTATE semantics: one valid jti per family,
 // compare-and-swap on rotate, family burned on reuse.
@@ -41,12 +42,17 @@ class FakeRefreshStore implements IRefreshTokenStore {
 }
 
 // A real controller wired through a real JWT (so sign/verify/typ claims all run
-// for real); only the credentials check and the Redis store are faked.
+// for real); only the credentials use case and the Redis store are faked.
 async function buildApp() {
-  const authService = {
-    verifyCredentials: vi.fn(async () => ({ id: "u1", role: "user" as const })),
-  } as unknown as AuthService;
-  const controller = new AuthController(authService, new FakeRefreshStore());
+  const verifyCredentials = {
+    execute: vi.fn(async () => ({ id: "u1", role: "user" as const })),
+  } as unknown as VerifyCredentials;
+  const registerUser = { execute: vi.fn() } as unknown as RegisterUser;
+  const controller = new AuthController(
+    registerUser,
+    verifyCredentials,
+    new FakeRefreshStore(),
+  );
 
   const app = Fastify();
   app.setValidatorCompiler(validatorCompiler);

@@ -1,89 +1,106 @@
 import { describe, it, expect, vi } from "vitest";
-import { UserService } from "../../services/user.service.js";
-import type { IUserRepository } from "../../types/user.types.js";
-import type { UnitOfWork } from "../../extras/unit-of-work.js";
-import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
-import type { User } from "../../entities/user.entity.js";
+import type { IUserRepository } from "../../modules/users/domain/user.repository.js";
+import type {
+  Repositories,
+  UnitOfWork,
+} from "../../shared/infrastructure/persistence/unit-of-work.js";
+import { InMemoryCache } from "../../shared/infrastructure/cache/in-memory.cache.js";
+import { CreateUser } from "../../modules/users/application/create-user.js";
+import { CreateUsersBulk } from "../../modules/users/application/create-users-bulk.js";
+import { GetUser } from "../../modules/users/application/get-user.js";
+import { User } from "../../modules/users/domain/user.js";
 
-// One helper builds a fake repository; each test overrides only what it cares
-// about. The service depends on IUserRepository, so no database is involved.
+// One helper builds a fake repository speaking the domain's IUserRepository —
+// it stores/returns aggregates, so no database is involved.
 function fakeRepo(overrides: Partial<IUserRepository> = {}): IUserRepository {
   return {
-    get: vi.fn(async () => ({ data: [], total: 0, limit: 20, offset: 0 })),
-    getPage: vi.fn(async () => ({ data: [], nextCursor: null })),
-    getById: vi.fn(async () => null),
-    getForLogin: vi.fn(async () => null),
-    create: vi.fn(async (data) => ({ id: "1", ...data }) as User),
-    update: vi.fn(async () => null),
-    softDelete: vi.fn(async () => undefined),
+    list: vi.fn(async () => ({ data: [], total: 0 })),
+    listByCursor: vi.fn(async () => ({ data: [], nextCursor: null })),
+    findById: vi.fn(async () => null),
+    findForLogin: vi.fn(async () => null),
+    add: vi.fn(async () => {}),
+    save: vi.fn(async () => {}),
+    softDelete: vi.fn(async () => {}),
     ...overrides,
-  } as unknown as IUserRepository;
+  };
 }
 
-// The fake Unit of Work runs the work inline against the same repo — no real
-// transaction, but it proves the service composes its calls through the UoW.
-function makeService(repo: IUserRepository) {
-  const uow: UnitOfWork = { run: (work) => work({ users: repo }) };
-  return new UserService(repo, uow, new InMemoryCache());
-}
+describe("user use cases", () => {
+  it("CreateUser normalizes the name before persisting the aggregate", async () => {
+    const add = vi.fn(async (_user: User) => {});
+    const useCase = new CreateUser(fakeRepo({ add }));
 
-describe("UserService", () => {
-  // Note: duplicate-email rejection now lives in UserModel.create (closest to
-  // the DB), so it is covered in the model + integration suites, not here.
-  it("capitalizes the name before handing it to the repository", async () => {
-    const create = vi.fn(async (data) => data as User);
-    const service = makeService(fakeRepo({ create }));
-
-    await service.createUser({
+    await useCase.execute({
       name: "ada lovelace",
       email: "ada@x.com",
       password: "password123",
     });
 
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Ada Lovelace" }),
-    );
+    const user = add.mock.calls[0][0] as User;
+    expect(user.name).toBe("Ada Lovelace");
   });
 
-  it("bulk create capitalizes each name and inserts through the Unit of Work", async () => {
-    const create = vi.fn(async (data) => data as User);
-    const repo = fakeRepo({ create });
-    const run = vi.fn(
-      (work: (r: { users: IUserRepository }) => Promise<User[]>) =>
-        work({ users: repo }),
-    );
-    const service = new UserService(
-      repo,
-      { run } as unknown as UnitOfWork,
-      new InMemoryCache(),
-    );
+  it("CreateUser stores a bcrypt hash, never the raw password", async () => {
+    const add = vi.fn(async (_user: User) => {});
+    const useCase = new CreateUser(fakeRepo({ add }));
 
-    await service.createUsers([
+    await useCase.execute({
+      name: "ada",
+      email: "ada@x.com",
+      password: "password123",
+    });
+
+    const user = add.mock.calls[0][0] as User;
+    expect(user.passwordHash).not.toBe("password123");
+    expect(await user.verifyPassword("password123")).toBe(true);
+  });
+
+  it("CreateUsersBulk normalizes each name and inserts through the Unit of Work", async () => {
+    const add = vi.fn(async (_user: User) => {});
+    const repo = fakeRepo({ add });
+    const run = vi.fn((work: (r: Repositories) => Promise<unknown>) =>
+      work({ users: repo }),
+    );
+    const useCase = new CreateUsersBulk({ run } as unknown as UnitOfWork);
+
+    await useCase.execute([
       { name: "ada lovelace", email: "ada@x.com", password: "password123" },
       { name: "grace hopper", email: "grace@x.com", password: "password123" },
     ]);
 
     expect(run).toHaveBeenCalledOnce(); // one transaction for the whole batch
-    expect(create).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({ name: "Ada Lovelace" }),
-    );
-    expect(create).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({ name: "Grace Hopper" }),
-    );
+    expect((add.mock.calls[0][0] as User).name).toBe("Ada Lovelace");
+    expect((add.mock.calls[1][0] as User).name).toBe("Grace Hopper");
   });
 
-  it("throws 404 when the user is missing", async () => {
-    const service = makeService(fakeRepo({ getById: vi.fn(async () => null) }));
-    await expect(service.getUser("missing")).rejects.toMatchObject({
+  it("GetUser throws 404 when the user is missing", async () => {
+    const useCase = new GetUser(
+      fakeRepo({ findById: vi.fn(async () => null) }),
+      new InMemoryCache(),
+    );
+    await expect(useCase.execute("missing")).rejects.toMatchObject({
       status: 404,
     });
   });
 
-  it("returns the user when found", async () => {
-    const user = { id: "1", name: "Ada" } as User;
-    const service = makeService(fakeRepo({ getById: vi.fn(async () => user) }));
-    await expect(service.getUser("1")).resolves.toBe(user);
+  it("GetUser returns a snapshot without the password hash when found", async () => {
+    const user = await User.create({
+      name: "Ada",
+      email: "ada@x.com",
+      password: "password123",
+    });
+    const useCase = new GetUser(
+      fakeRepo({ findById: vi.fn(async () => user) }),
+      new InMemoryCache(),
+    );
+
+    const result = await useCase.execute(user.id);
+
+    expect(result).toMatchObject({
+      id: user.id,
+      name: "Ada",
+      email: "ada@x.com",
+    });
+    expect(result).not.toHaveProperty("passwordHash");
   });
 });

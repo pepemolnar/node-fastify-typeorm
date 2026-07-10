@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { encodeCursor, decodeCursor } from "../../helpers/cursor.helper.js";
+import {
+  encodeCursor,
+  decodeCursor,
+} from "../../shared/infrastructure/pagination/cursor.js";
 
 describe("cursor helper", () => {
   it("round-trips a cursor through encode/decode", () => {

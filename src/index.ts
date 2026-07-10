@@ -1,8 +1,8 @@
 import "reflect-metadata";
 import { createApp } from "./app.js";
 import { env } from "./config/env.config.js";
-import { createLogger } from "./extras/logger.js";
-import { AppDataSource } from "./extras/data-source.js";
+import { createLogger } from "./shared/infrastructure/logger.js";
+import { AppDataSource } from "./shared/infrastructure/persistence/data-source.js";
 import { createContainer } from "./container.js";
 
 await AppDataSource.initialize();

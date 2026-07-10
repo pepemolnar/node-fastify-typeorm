@@ -18,6 +18,9 @@ export async function routes(app: FastifyInstance, container: Container) {
     async (v1) => {
       await v1.register(container.userRoutes.register, { prefix: "/users" });
       await v1.register(container.authRoutes.register, { prefix: "/auth" });
+      await v1.register(container.projectRoutes.register, {
+        prefix: "/projects",
+      });
     },
     { prefix: "/v1" },
   );

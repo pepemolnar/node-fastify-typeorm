@@ -1,8 +1,8 @@
 # Fastify + TypeORM Reference API
 
-A sample REST API built to showcase how I approach backend software engineering. Rather than solving a novel business problem, this project deliberately implements a broad cross-section of the architectural concepts, standards, and patterns I use day to day — layered design, dependency injection, request validation, structured logging, authentication, transactional data access, event-driven background jobs, and a full testing pyramid — so it can serve as a compact, readable reference for the way I build and reason about services.
+A sample REST API built to showcase how I approach backend software engineering. Rather than solving a novel business problem, this project deliberately implements a broad cross-section of the architectural concepts, standards, and patterns I use day to day — Domain-Driven Design, layered design, dependency injection, request validation, structured logging, authentication, transactional data access, event-driven background jobs, and a full testing pyramid — so it can serve as a compact, readable reference for the way I build and reason about services.
 
-The domain itself is intentionally small (user management with authentication), which keeps the focus on _how_ the code is structured rather than _what_ it does.
+The domain itself is intentionally small (user management with authentication, plus a projects/tasks context), which keeps the focus on _how_ the code is structured rather than _what_ it does.
 
 ---
 
@@ -26,44 +26,59 @@ The domain itself is intentionally small (user management with authentication), 
 
 ## Architecture
 
-Fastify is used deliberately as a **thin, low-level HTTP layer**. All higher-level structure — layering, business rules, persistence — is built on top of it with TypeORM, so the framework stays out of the way of the domain code.
+Fastify is used deliberately as a **thin, low-level HTTP layer**. Everything above it is organized with **Domain-Driven Design**: the codebase is grouped by _bounded context_, not by technical layer.
 
-### The four layers
+### Bounded contexts (feature modules)
 
-Every request flows through four distinct layers, each with a single responsibility:
+`src/modules/` holds one self-contained module per context, and `src/shared/` holds the kernel they all build on:
 
 ```
-Request
-  │
-  ▼
-┌───────────────┐   Routes        — declare paths, attach schemas & auth guards,
-│    Routes     │                   decide where a request goes.
-└───────┬───────┘
-        ▼
-┌───────────────┐   Controllers   — pull data out of the request and shape the
-│  Controllers  │                   HTTP response. No business logic.
-└───────┬───────┘
-        ▼
-┌───────────────┐   Services      — the business logic: normalization, hashing,
-│   Services    │                   rules, orchestration.
-└───────┬───────┘
-        ▼
-┌───────────────┐   Models        — the only layer that talks to the database
-│    Models     │                   (TypeORM repositories, transactions).
-└───────┬───────┘
-        ▼
-   PostgreSQL
+src/
+  modules/
+    users/          profiles, registration data, listing
+    auth/           login, JWT access/refresh, rotation
+    notifications/  channels, email, reactions to domain events
+    projects/       Projects & Tasks (aggregate root owning child entities)
+  shared/           the shared kernel every context reuses
+  container.ts      composition root — the whole object graph
 ```
 
-This separation means each layer can be reasoned about — and tested — in isolation. A controller never runs a query; a model never inspects a JWT.
+Each module owns a four-slice vertical, and the dependency rule points **inward**:
 
-### A note on the current structure
+```
+<context>/
+  interface/       Fastify routes, controllers, Zod schemas   ─┐
+  application/     use cases orchestrating the domain + ports  │  depend
+  domain/          aggregates, entities, value objects,        │  inward
+                   domain events, repository interfaces        │
+  infrastructure/  TypeORM entities, repository impls,          │
+                   mappers, adapters                           ─┘
+```
 
-`src/` currently groups code by **technical role** (`routes`, `controllers`, `services`, `models`), with the supporting infrastructure — adapters, resilience, guards, notifications, data source — collected under `src/extras/` so the four core layers stay legible as the project grows. This is deliberate but interim: the **final roadmap phase restructures the codebase around bounded contexts (Domain-Driven Design)** — grouping by _domain_ rather than by layer, promoting the persistence entity to a rich aggregate, and adding a second context to prove the module boundaries hold. It's sequenced last on purpose, so the reorganization happens once, after every collaborator exists.
+`interface → application → domain ← infrastructure`. The **domain** layer imports nothing from Fastify or TypeORM, so the business rules can be tested — and reasoned about — with no framework in sight.
+
+### The shared kernel
+
+`src/shared/` is the single home for cross-cutting primitives, replacing the old `extras/` grab-bag:
+
+- **`domain/`** — base [`Entity`](src/shared/domain/entity.ts) / [`AggregateRoot`](src/shared/domain/aggregate-root.ts) / [`ValueObject`](src/shared/domain/value-object.ts), a `Result` type, the [`HttpError`](src/shared/domain/errors/http-error.ts), and the [`DomainEvent`](src/shared/domain/events/domain-event.ts) + [`EventBus`](src/shared/domain/events/event-bus.ts) contracts.
+- **`infrastructure/`** — the [data source](src/shared/infrastructure/persistence/data-source.ts), [Unit of Work](src/shared/infrastructure/persistence/unit-of-work.ts), [base repository](src/shared/infrastructure/persistence/base-repository.ts) + query builder, the [Redis cache](src/shared/infrastructure/cache/redis.cache.ts), the [BullMQ job queue](src/shared/infrastructure/jobs/bullmq.job-queue.ts), resilience (retry + circuit breaker), the [in-process event bus](src/shared/infrastructure/events/in-memory-event-bus.ts), and logging.
+- **`interface/`** — the [RFC 7807 error handler](src/shared/interface/error-handler.ts), the [idempotency](src/shared/interface/idempotency.ts) and [auth](src/shared/interface/auth.guards.ts) guards, and shared schemas.
+
+### A rich domain model
+
+Entities are no longer anemic rows with their logic stranded in services. Each aggregate owns its behavior and guards its own invariants:
+
+- **[`User`](src/modules/users/domain/user.ts)** is an aggregate root built from value objects — `Email` (validated + normalized) and `PasswordHash` (bcrypt; the raw password never touches the aggregate) — so invalid states are unrepresentable. A separate TypeORM `UserEntity` handles persistence and a **mapper** translates between the two, keeping the ORM out of the domain.
+- **[`Project`](src/modules/projects/domain/project.ts)** is an aggregate root that owns `Task` child entities. It enforces its own invariants — a deadline can't be set in the past, a project can't be archived while it still has open tasks — and a lifecycle (`active → archived`). It references its owner (a `User` in another context) **by id only**, never reaching across the boundary.
+
+### Domain events
+
+Rather than doing side work inline, aggregates **record** domain events (`UserRegistered`, `TaskCompleted`); the application layer drains them (`pullDomainEvents()`) and publishes them to an in-process `EventBus` _after_ the aggregate is persisted. Decoupled handlers in the **notifications** context react — registering a user enqueues a welcome email, completing a task logs a notification — so the publisher never knows who is listening, and one event can fan out to several handlers. A failing handler is isolated and logged; it can't break the others or the request.
 
 ### Cross-cutting concerns
 
-- **Global error handling (RFC 7807)** — a single [`errorHandler`](src/middlewares/errorHandler.ts) maps a custom `HttpError`, Zod validation errors, serialization errors, guard rejections, unmatched routes, and unexpected failures onto a consistent [`application/problem+json`](https://datatracker.ietf.org/doc/html/rfc7807) body — `{ type, title, status, code, detail, instance, errors? }` — with a machine-readable `code` (e.g. `EMAIL_ALREADY_EXISTS`, `VALIDATION_ERROR`) clients can branch on. Business code just `throw`s; the handler decides the status and shape.
+- **Global error handling (RFC 7807)** — a single [`errorHandler`](src/shared/interface/error-handler.ts) maps the domain `HttpError`, Zod validation errors, serialization errors, guard rejections, unmatched routes, and unexpected failures onto a consistent [`application/problem+json`](https://datatracker.ietf.org/doc/html/rfc7807) body — `{ type, title, status, code, detail, instance, errors? }` — with a machine-readable `code` (e.g. `EMAIL_ALREADY_EXISTS`, `PROJECT_HAS_OPEN_TASKS`) clients can branch on. Business code just `throw`s; the handler decides the status and shape.
 - **Request validation & typing** — every route declares Zod schemas for its body, params, query, and responses. Invalid input is rejected before it reaches a controller, and the same schemas drive TypeScript types _and_ the OpenAPI documentation — a single source of truth.
 - **Structured logging** — Pino is wired in with per-request IDs (`x-request-id`), so every log line is correlatable and JSON-structured in production (pretty-printed in development).
 - **Graceful shutdown** — SIGINT/SIGTERM drain in-flight requests and close the DB pool, with a hard timeout so a hung drain can't wedge a deploy. See [`index.ts`](src/index.ts).
@@ -75,14 +90,17 @@ This separation means each layer can be reasoned about — and tested — in iso
 
 ### Dependency injection + composition root
 
-All dependencies are constructor-injected and wired together in a single **composition root** — the [`container`](src/container.ts). Nothing reaches out for its own collaborators; everything is handed in:
+All dependencies are constructor-injected and wired together in a single **composition root** — the [`container`](src/container.ts). Nothing reaches out for its own collaborators; every context is assembled from the shared kernel and its use cases:
 
 ```ts
-const userRepository = new UserModel(AppDataSource.manager);
-const unitOfWork = new TypeOrmUnitOfWork(AppDataSource);
-const userService = new UserService(userRepository, unitOfWork);
-const userController = new UserController(userService);
-const userRoutes = new UserRoutes(userController);
+const userRepository = new UserRepository(AppDataSource.manager);
+const userController = new UserController(
+  new ListUsers(userRepository),
+  new GetUser(userRepository, cache),
+  new CreateUser(userRepository),
+  // …one use case per action
+);
+const userRoutes = new UserRoutes(userController, cache);
 ```
 
 This gives two concrete benefits:
@@ -92,12 +110,13 @@ This gives two concrete benefits:
 
 ### Design patterns
 
-- **Factory** — [`NotifierFactory`](src/notifications/notifier.ts) constructs the right `Notifier` for a given channel.
-- **Builder** — [`FindOptionsBuilder`](src/models/query/query-builder.ts) assembles query find-options fluently.
-- **Strategy** — [`Notifier`](src/notifications/notifier.ts) with one implementation per channel (email / SMS / log).
-- **Repository & Unit of Work** — [`IUserRepository`](src/types/user.types.ts) behind the service; [`UnitOfWork`](src/db/unit-of-work.ts) owns the transaction boundary.
-- **Adapter** — the cache ([`RedisCache`](src/extras/adapters/redis.adapter.ts)), the outbound API client, and the email sender sit behind ports so the core stays framework-agnostic.
-- **Observer / domain events** — an in-process [`EventBus`](src/extras/events/event-bus.ts) publishes domain events (`UserRegistered`) that decoupled handlers subscribe to; one event can fan out to several handlers.
+- **Aggregate / Entity / Value Object** — the DDD building blocks: an [aggregate root](src/modules/projects/domain/project.ts) owns child [entities](src/modules/projects/domain/task.ts) and guards their invariants; [value objects](src/modules/users/domain/value.objects/email.ts) make invalid states unrepresentable.
+- **Factory** — [`NotifierFactory`](src/modules/notifications/application/notifier.factory.ts) constructs the right `Notifier` for a given channel.
+- **Builder** — [`FindOptionsBuilder`](src/shared/infrastructure/persistence/query-builder.ts) assembles query find-options fluently.
+- **Strategy** — [`Notifier`](src/modules/notifications/domain/notifier.ts) with one implementation per channel (email / SMS / log).
+- **Repository & Unit of Work** — [`IUserRepository`](src/modules/users/domain/user.repository.ts) lives in the domain, behind its use cases; the [`UnitOfWork`](src/shared/infrastructure/persistence/unit-of-work.ts) owns the transaction boundary.
+- **Adapter** — the cache ([`RedisCache`](src/shared/infrastructure/cache/redis.cache.ts)), the outbound API client, and the email sender sit behind ports so the core stays framework-agnostic.
+- **Observer / domain events** — an in-process [`EventBus`](src/shared/infrastructure/events/in-memory-event-bus.ts) publishes domain events (`UserRegistered`, `TaskCompleted`) that decoupled handlers subscribe to; one event can fan out to several handlers.
 - **Producer / Consumer** — the API enqueues [BullMQ](https://docs.bullmq.io/) jobs; a separate [worker](src/worker.ts) process consumes them, off the request path.
 
 ### Authentication & authorization
@@ -106,20 +125,20 @@ This gives two concrete benefits:
 - **Rotation with reuse detection** — each refresh retires the presented token and issues a new one in the same _family_. Replaying an already-rotated token is treated as theft and revokes the whole family — an atomic compare-and-swap in Redis. `/auth/logout` revokes a session outright.
 - **Passwords** are hashed with bcrypt and never returned or logged.
 - **Login is enumeration-safe** — an unknown email and a wrong password produce the _same_ error, so an attacker can't probe which accounts exist.
-- **Route guards** ([`auth.guards.ts`](src/extras/guards/auth.guards.ts)) — `authenticate` verifies the JWT (and rejects a refresh token used as an access token); `requireRole("admin")` enforces role-based access. Guards are declared per-route as Fastify `preHandler`s, so protection is visible right next to the route it protects.
+- **Route guards** ([`auth.guards.ts`](src/shared/interface/auth.guards.ts)) — `authenticate` verifies the JWT (and rejects a refresh token used as an access token); `requireRole("admin")` enforces role-based access. Guards are declared per-route as Fastify `preHandler`s, so protection is visible right next to the route it protects.
 
 ### Data-access patterns
 
 - **Migrations, not auto-sync** — the schema is versioned through TypeORM migrations (`synchronize: false`), the same discipline you'd use in production.
-- **Transactions via Unit of Work** — bulk operations (e.g. creating many users) run inside a single transaction owned by the [`UnitOfWork`](src/db/unit-of-work.ts), so they're all-or-nothing.
-- **Soft deletes** — records are flagged `isDeleted` rather than physically removed; the filter is centralized in [`BaseModel`](src/models/base.model.ts), so every read (list _and_ point lookups) excludes them.
+- **Transactions via Unit of Work** — bulk operations (e.g. creating many users) run inside a single transaction owned by the [`UnitOfWork`](src/shared/infrastructure/persistence/unit-of-work.ts), so they're all-or-nothing.
+- **Soft deletes** — records are flagged `isDeleted` rather than physically removed; the filter is centralized in [`BaseRepository`](src/shared/infrastructure/persistence/base-repository.ts), so every read (list _and_ point lookups) excludes them.
 - **Pagination, two ways** — validated **offset** paging returns a `{ data, total, limit, offset }` envelope; **cursor** (keyset) paging over `(createdAt, id)` returns `{ data, nextCursor }` for large, changing datasets.
 
 ### Async & eventing
 
-- **Domain events (Observer)** — rather than doing side work inline, services publish domain events to an in-process [`EventBus`](src/extras/events/event-bus.ts). Registering a user publishes `UserRegistered`; independent handlers react, so the publisher stays ignorant of its consumers. A failing handler is isolated and logged — it can't break the others or the request.
+- **Domain events (Observer)** — services publish domain events to an in-process [`EventBus`](src/shared/infrastructure/events/in-memory-event-bus.ts) rather than doing side work inline. Registering a user publishes `UserRegistered`; completing a task publishes `TaskCompleted`; independent handlers react, so the publisher stays ignorant of its consumers.
 - **Background jobs (producer/consumer)** — slow or unreliable work is offloaded to a [BullMQ](https://docs.bullmq.io/) queue on Redis, with retries and exponential backoff. The API is the _producer_; a separate **worker process** ([`worker.ts`](src/worker.ts)) is the _consumer_. So `UserRegistered` → a handler enqueues a job → the worker sends the welcome email, entirely off the request path and in its own process.
-- **Email service** — transactional email sits behind a provider-agnostic [`EmailAdapter`](src/extras/adapters/console-email.port.ts) (a console implementation for local/dev), so swapping in a real provider touches one file.
+- **Email service** — transactional email sits behind a provider-agnostic [`EmailAdapter`](src/modules/notifications/application/email.port.ts) (a console implementation for local/dev), so swapping in a real provider touches one file.
 
 ---
 
@@ -127,7 +146,7 @@ This gives two concrete benefits:
 
 A layered test strategy mirrors the layered architecture:
 
-- **Unit tests** for services, controllers, and models with injected fakes — fast, no I/O.
+- **Unit tests** for domain aggregates, use cases, and repositories with injected fakes — fast, no I/O.
 - **Route/app tests** that exercise the full Fastify stack in-process.
 - **Integration tests** that run against a **real PostgreSQL instance spun up on the fly with Testcontainers** — no mocked database, so migrations and queries are verified against the actual engine.
 
@@ -161,15 +180,16 @@ This project is a living showcase, so the list below is as much a part of it as 
 
 ### Design patterns
 
-- [x] **Layered architecture** — Routes → Controllers → Services → Models, each single-responsibility
+- [x] **Layered architecture** — interface → application → domain ← infrastructure, each single-responsibility
 - [x] **Dependency injection + composition root** — all wiring in [`container.ts`](src/container.ts)
-- [x] **Global error handling** — one handler mapping domain, validation & serialization errors ([`errorHandler.ts`](src/middlewares/errorHandler.ts))
+- [x] **Global error handling** — one handler mapping domain, validation & serialization errors ([`error-handler.ts`](src/shared/interface/error-handler.ts))
 - [x] **Factory pattern** — a factory for constructing domain entities/DTOs with sensible defaults, decoupling creation from the caller.
 - [x] **Builder pattern** — a fluent query/filter builder for complex list endpoints, replacing ad-hoc `where` object assembly.
 - [x] **Strategy pattern** — pluggable strategies for a varying policy (e.g. password-hashing algorithm, or notification channel) selected at runtime.
 - [x] **Repository & Unit of Work** — formalize the model layer behind explicit repository interfaces and wrap multi-step writes in a Unit of Work.
 - [x] **Adapter pattern** — wrap the external API client and the cache client behind adapters so the core stays framework-agnostic.
-- [x] **Domain events / Observer** — emit events (`UserRegistered`) that decoupled handlers react to, paving the way toward event-driven design.
+- [x] **Domain events / Observer** — emit events (`UserRegistered`, `TaskCompleted`) that decoupled handlers react to.
+- [x] **Domain-Driven Design** — bounded contexts as feature modules, rich aggregates + value objects, a shared kernel, and a second context (Projects & Tasks) proving the boundaries hold.
 
 ### Standards & practices
 
@@ -184,7 +204,7 @@ This project is a living showcase, so the list below is as much a part of it as 
 - [x] **CI** — GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))
 - [x] **Lint & format** — ESLint + Prettier
 - [ ] **Observability** — OpenTelemetry tracing + Prometheus metrics + a `/metrics` endpoint, so requests are traceable end-to-end.
-- [x] **RFC 7807 error format** — return `application/problem+json` with machine-readable error codes, upgrading the current error envelope.
+- [x] **RFC 7807 error format** — return `application/problem+json` with machine-readable error codes.
 - [x] **API versioning** — a `/v1` prefix and a strategy for evolving the contract without breaking clients.
 - [x] **Idempotency keys** — make unsafe POSTs safely retryable.
 - [x] **Resilience** — retry with backoff and a circuit breaker around outbound calls to the external API.
@@ -259,21 +279,27 @@ The API is now at `http://localhost:3000`, with interactive docs at **`http://lo
 
 All application endpoints live under a `/v1` prefix so the contract can evolve without breaking clients; the infrastructure probes (`/health`, `/ready`) and the docs stay unversioned.
 
-| Method   | Path                | Auth  | Description                                     |
-| -------- | ------------------- | ----- | ----------------------------------------------- |
-| `POST`   | `/v1/auth/register` | —     | Create an account                               |
-| `POST`   | `/v1/auth/login`    | —     | Obtain an access + refresh token pair           |
-| `POST`   | `/v1/auth/refresh`  | —     | Rotate: exchange a refresh token for a new pair |
-| `POST`   | `/v1/auth/logout`   | —     | Revoke a refresh token (session)                |
-| `GET`    | `/v1/users`         | user  | List users (offset-paginated, filterable)       |
-| `GET`    | `/v1/users/cursor`  | user  | List users (cursor / keyset pagination)         |
-| `GET`    | `/v1/users/:id`     | user  | Get one user                                    |
-| `POST`   | `/v1/users`         | admin | Create a user                                   |
-| `POST`   | `/v1/users/bulk`    | admin | Create many (transactional)                     |
-| `PUT`    | `/v1/users/:id`     | admin | Update a user                                   |
-| `DELETE` | `/v1/users/:id`     | admin | Soft-delete a user                              |
-| `GET`    | `/health`           | —     | Liveness probe                                  |
-| `GET`    | `/ready`            | —     | Readiness probe (DB check)                      |
+| Method   | Path                                      | Auth  | Description                                     |
+| -------- | ----------------------------------------- | ----- | ----------------------------------------------- |
+| `POST`   | `/v1/auth/register`                       | —     | Create an account                               |
+| `POST`   | `/v1/auth/login`                          | —     | Obtain an access + refresh token pair           |
+| `POST`   | `/v1/auth/refresh`                        | —     | Rotate: exchange a refresh token for a new pair |
+| `POST`   | `/v1/auth/logout`                         | —     | Revoke a refresh token (session)                |
+| `GET`    | `/v1/users`                               | user  | List users (offset-paginated, filterable)       |
+| `GET`    | `/v1/users/cursor`                        | user  | List users (cursor / keyset pagination)         |
+| `GET`    | `/v1/users/:id`                           | user  | Get one user                                    |
+| `POST`   | `/v1/users`                               | admin | Create a user                                   |
+| `POST`   | `/v1/users/bulk`                          | admin | Create many (transactional)                     |
+| `PUT`    | `/v1/users/:id`                           | admin | Update a user                                   |
+| `DELETE` | `/v1/users/:id`                           | admin | Soft-delete a user                              |
+| `POST`   | `/v1/projects`                            | user  | Create a project (owner = caller)               |
+| `GET`    | `/v1/projects`                            | user  | List your projects                              |
+| `GET`    | `/v1/projects/:id`                        | user  | Get one project (with its tasks)                |
+| `POST`   | `/v1/projects/:id/tasks`                  | user  | Add a task                                      |
+| `POST`   | `/v1/projects/:id/tasks/:taskId/complete` | user  | Complete a task (emits `TaskCompleted`)         |
+| `POST`   | `/v1/projects/:id/archive`                | user  | Archive a project (rejects open tasks)          |
+| `GET`    | `/health`                                 | —     | Liveness probe                                  |
+| `GET`    | `/ready`                                  | —     | Readiness probe (DB check)                      |
 
 The full, always-up-to-date contract is served from `/docs` (generated from the same Zod schemas the routes validate against).
 

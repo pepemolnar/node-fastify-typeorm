@@ -1,88 +1,94 @@
 import { describe, it, expect, vi } from "vitest";
-import { AuthService } from "../../services/auth.service.js";
-import type { IUserRepository } from "../../types/user.types.js";
-import type { User } from "../../entities/user.entity.js";
-import type { EventBus } from "../../extras/events/event-bus.js";
-import { hashPassword, verifyPassword } from "../../helpers/password.helper.js";
+import type { IUserRepository } from "../../modules/users/domain/user.repository.js";
+import type { EventBus } from "../../shared/domain/events/event-bus.js";
+import { RegisterUser } from "../../modules/auth/application/register-user.js";
+import { VerifyCredentials } from "../../modules/auth/application/verify-credentials.js";
+import { User } from "../../modules/users/domain/user.js";
 
-function fakeModel(overrides: Partial<IUserRepository> = {}): IUserRepository {
+function fakeRepo(overrides: Partial<IUserRepository> = {}): IUserRepository {
   return {
-    create: vi.fn(async (data) => ({ id: "1", ...data }) as User),
-    getForLogin: vi.fn(async () => null),
+    list: vi.fn(async () => ({ data: [], total: 0 })),
+    listByCursor: vi.fn(async () => ({ data: [], nextCursor: null })),
+    findById: vi.fn(async () => null),
+    findForLogin: vi.fn(async () => null),
+    add: vi.fn(async () => {}),
+    save: vi.fn(async () => {}),
+    softDelete: vi.fn(async () => {}),
     ...overrides,
-  } as unknown as IUserRepository;
+  };
 }
 
-// register publishes a domain event instead of doing the work inline; a stub
+// register publishes a domain event instead of doing side work inline; a stub
 // bus lets us assert the event without wiring a real queue.
 function fakeEvents(): EventBus {
-  return { publish: vi.fn(async () => {}), subscribe: vi.fn() } as EventBus;
+  return {
+    publish: vi.fn(async () => {}),
+    subscribe: vi.fn(),
+  } as unknown as EventBus;
 }
 
-describe("AuthService", () => {
-  it("register capitalizes the name and stores a bcrypt hash, not the password", async () => {
-    const create = vi.fn(async (data) => ({ id: "1", ...data }) as User);
+describe("RegisterUser", () => {
+  it("normalizes the name, stores a bcrypt hash, and publishes UserRegistered", async () => {
+    const add = vi.fn(async (_user: User) => {});
     const events = fakeEvents();
-    const service = new AuthService(fakeModel({ create }), events);
+    const useCase = new RegisterUser(fakeRepo({ add }), events);
 
-    await service.register({
+    const snapshot = await useCase.execute({
       name: "ada lovelace",
       email: "ada@x.com",
       password: "password123",
     });
 
-    const arg = create.mock.calls[0][0];
-    expect(arg.name).toBe("Ada Lovelace");
-    expect(arg.passwordHash).not.toBe("password123");
-    expect(await verifyPassword("password123", arg.passwordHash)).toBe(true);
+    const user = add.mock.calls[0][0] as User;
+    expect(user.name).toBe("Ada Lovelace");
+    expect(user.passwordHash).not.toBe("password123");
+    expect(await user.verifyPassword("password123")).toBe(true);
     expect(events.publish).toHaveBeenCalledWith(
       expect.objectContaining({ type: "UserRegistered", email: "ada@x.com" }),
     );
+    expect(snapshot).not.toHaveProperty("passwordHash");
   });
+});
 
-  it("verifyCredentials returns id and role on a correct password", async () => {
-    const passwordHash = await hashPassword("password123");
-    const service = new AuthService(
-      fakeModel({
-        getForLogin: vi.fn(
-          async () => ({ id: "u1", role: "admin", passwordHash }) as User,
-        ),
-      }),
-      fakeEvents(),
+describe("VerifyCredentials", () => {
+  it("returns id and role on a correct password", async () => {
+    const user = await User.create({
+      name: "Ada",
+      email: "a@x.com",
+      password: "password123",
+      role: "admin",
+    });
+    const useCase = new VerifyCredentials(
+      fakeRepo({ findForLogin: vi.fn(async () => user) }),
     );
 
     await expect(
-      service.verifyCredentials({ email: "a@x.com", password: "password123" }),
-    ).resolves.toEqual({ id: "u1", role: "admin" });
+      useCase.execute({ email: "a@x.com", password: "password123" }),
+    ).resolves.toEqual({ id: user.id, role: "admin" });
   });
 
-  it("verifyCredentials throws 401 when the user is missing", async () => {
-    const service = new AuthService(
-      fakeModel({ getForLogin: vi.fn(async () => null) }),
-      fakeEvents(),
+  it("throws 401 when the user is missing", async () => {
+    const useCase = new VerifyCredentials(
+      fakeRepo({ findForLogin: vi.fn(async () => null) }),
     );
 
     await expect(
-      service.verifyCredentials({ email: "a@x.com", password: "password123" }),
+      useCase.execute({ email: "a@x.com", password: "password123" }),
     ).rejects.toMatchObject({ status: 401 });
   });
 
-  it("verifyCredentials throws 401 on a wrong password", async () => {
-    const passwordHash = await hashPassword("correct-password");
-    const service = new AuthService(
-      fakeModel({
-        getForLogin: vi.fn(
-          async () => ({ id: "u1", role: "user", passwordHash }) as User,
-        ),
-      }),
-      fakeEvents(),
+  it("throws 401 on a wrong password", async () => {
+    const user = await User.create({
+      name: "Ada",
+      email: "a@x.com",
+      password: "correct-password",
+    });
+    const useCase = new VerifyCredentials(
+      fakeRepo({ findForLogin: vi.fn(async () => user) }),
     );
 
     await expect(
-      service.verifyCredentials({
-        email: "a@x.com",
-        password: "wrong-password",
-      }),
+      useCase.execute({ email: "a@x.com", password: "wrong-password" }),
     ).rejects.toMatchObject({ status: 401 });
   });
 });

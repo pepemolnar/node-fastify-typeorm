@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Logger } from "pino";
-import { InMemoryEventBus } from "../../extras/events/event-bus.js";
+import { InMemoryEventBus } from "../../shared/infrastructure/events/in-memory-event-bus.js";
 
 function fakeLogger(): Logger {
   return { error: vi.fn() } as unknown as Logger;

@@ -1,9 +1,7 @@
 import { describe, it, expect } from "vitest";
 import Fastify from "fastify";
-import {
-  registerErrorHandler,
-  HttpError,
-} from "../../middlewares/errorHandler.js";
+import { registerErrorHandler } from "../../shared/interface/error-handler.js";
+import { HttpError } from "../../shared/domain/errors/http-error.js";
 
 async function buildApp() {
   const app = Fastify();

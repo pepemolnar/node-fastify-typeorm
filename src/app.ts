@@ -2,7 +2,7 @@ import Fastify, { type FastifyBaseLogger } from "fastify";
 import type { Logger } from "pino";
 import { env } from "./config/env.config.js";
 import { routes } from "./routes/index.js";
-import { registerErrorHandler } from "./middlewares/errorHandler.js";
+import { registerErrorHandler } from "./shared/interface/error-handler.js";
 import { Container } from "./container.js";
 import {
   jsonSchemaTransform,
@@ -11,12 +11,12 @@ import {
 } from "fastify-type-provider-zod";
 import fastifySwagger from "@fastify/swagger";
 import fastifySwaggerUi from "@fastify/swagger-ui";
-import { authPlugin } from "./extras/auth/auth.plugin.js";
+import { authPlugin } from "./modules/auth/infrastructure/auth.plugin.js";
 import fastifyHelmet from "@fastify/helmet";
 import fastifyCors from "@fastify/cors";
 import rateLimit from "@fastify/rate-limit";
 import { Redis } from "ioredis";
-import { createLogger } from "./extras/logger.js";
+import { createLogger } from "./shared/infrastructure/logger.js";
 
 export async function createApp(container: Container, logger?: Logger) {
   const app = Fastify({

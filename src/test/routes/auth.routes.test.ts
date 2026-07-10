@@ -5,10 +5,10 @@ import {
   serializerCompiler,
   validatorCompiler,
 } from "fastify-type-provider-zod";
-import { AuthRoutes } from "../../routes/auth.routes.js";
-import { authPlugin } from "../../extras/auth/auth.plugin.js";
-import { registerErrorHandler } from "../../middlewares/errorHandler.js";
-import type { AuthController } from "../../controllers/auth.controller.js";
+import { AuthRoutes } from "../../modules/auth/interface/auth.routes.js";
+import { authPlugin } from "../../modules/auth/infrastructure/auth.plugin.js";
+import { registerErrorHandler } from "../../shared/interface/error-handler.js";
+import type { AuthController } from "../../modules/auth/interface/auth.controller.js";
 
 async function buildApp(controller: Partial<AuthController>) {
   const app = Fastify();

@@ -43,7 +43,7 @@ services:
       REDIS_URL: redis://redis:6379
     ports:
       - "3000:3000"
-    command: sh -c "npx typeorm migration:run -d dist/extras/data-source.js && node dist/index.js"
+    command: sh -c "npx typeorm migration:run -d dist/shared/infrastructure/persistence/data-source.js && node dist/index.js"
   worker:
     build:
       context: .

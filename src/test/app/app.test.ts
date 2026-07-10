@@ -1,17 +1,20 @@
 import { describe, it, expect } from "vitest";
 import { createApp } from "../../app.js";
-import { UserRoutes } from "../../routes/user.routes.js";
-import type { UserController } from "../../controllers/user.controller.js";
-import { AuthRoutes } from "../../routes/auth.routes.js";
-import type { AuthController } from "../../controllers/auth.controller.js";
+import { UserRoutes } from "../../modules/users/interface/user.routes.js";
+import type { UserController } from "../../modules/users/interface/user.controller.js";
+import { AuthRoutes } from "../../modules/auth/interface/auth.routes.js";
+import type { AuthController } from "../../modules/auth/interface/auth.controller.js";
+import { ProjectRoutes } from "../../modules/projects/interface/project.routes.js";
+import type { ProjectController } from "../../modules/projects/interface/project.controller.js";
 import type { Container } from "../../container.js";
-import { InMemoryCache } from "../../extras/adapters/in-memory-cache.adapter.js";
+import { InMemoryCache } from "../../shared/infrastructure/cache/in-memory.cache.js";
 
 // The controller is never invoked while fetching the spec, so a stub is fine.
 function buildContainer(): Container {
   return {
     userRoutes: new UserRoutes({} as UserController, new InMemoryCache()),
     authRoutes: new AuthRoutes({} as AuthController),
+    projectRoutes: new ProjectRoutes({} as ProjectController),
     checkReadiness: async () => {},
   };
 }
